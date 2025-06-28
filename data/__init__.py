@@ -2,12 +2,12 @@ import data.img_transforms as T
 from data.dataloader import DataLoaderX
 from data.dataset_loader import *
 from data.samplers import *
-from data.datasets.ltcc import *
-from data.datasets.prcc import *
 
 
 from torch.utils.data import ConcatDataset, DataLoader
 
+from data.datasets.ltcc import *
+from data.datasets.prcc import *
 from data.datasets.mevid import *
 from data.datasets.ccvid import *
 
@@ -19,9 +19,7 @@ __factory = {
     'ltcc': LTCC,
     'prcc': PRCC,
     'mevid': MEVID,
-    'ccvid': CCVID, 
-    'ccvid_debug': CCVID_print_middle_frames, 
-        
+    'ccvid': CCVID,     
 }
 
 

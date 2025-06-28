@@ -50,6 +50,10 @@ class Adapter(nn.Module):
             x = xs
         return x
 
+
+
+
+########## MODEL IGNORES CLOTHING LABELS ..... (not an input)
 class Eva(nn.Module):
     """ Eva Vision Transformer w/ Abs & Rotary Pos Embed
 
@@ -260,8 +264,6 @@ class Eva(nn.Module):
 
         # apply abs position embedding
         if self.pos_embed is not None:
-            # if self.training:
-            # x = x + self.pos_embed + self.cloth_xishu * self.cloth_embed[cloth_id]
             x = x + self.pos_embed
         x = self.pos_drop(x)
 

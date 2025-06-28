@@ -121,11 +121,9 @@ class Video_as_Image(ImageDataset):
             return self.test_loader(index)    
 
 class Video_as_Image_fixes(Video_as_Image):
-    def __init__(self, tilt_fix=None, color_adv=None, transform=None, train=None, all_lr=None, prcc_lr=None, POSE=None, pose_csv=None, datatset_name=None, need_fixing=None, color_profile=None, **kwargs):
+    def __init__(self, color_adv=None, transform=None, train=None, datatset_name=None, need_fixing=None, color_profile=None, **kwargs):
         self.fix_loader = None 
         self.return_colors = None
-        self.lr_aug = None 
-        self.POSE = None
         self.datatset_name = datatset_name
         self.need_fixing = need_fixing
         
@@ -138,7 +136,7 @@ class Video_as_Image_fixes(Video_as_Image):
         #     all_lr = True 
         #     prcc_lr = False
 
-        self.aug_setup(tilt_fix, color_adv, all_lr, prcc_lr, POSE, pose_csv, train, transform, color_profile=color_profile)
+        self.aug_setup(color_adv, train, transform, color_profile=color_profile)
 
         if "prcc" in datatset_name or "last" in datatset_name:
             self.indentifier_fn = self.prcc_indentifier
@@ -157,98 +155,65 @@ class Video_as_Image_fixes(Video_as_Image):
         return identifier 
         # identifier = f"{session}_{folder}_{image_name[:-4]}.png"
             
-    def aug_setup(self, tilt_fix, color_adv, all_lr, prcc_lr, POSE, pose_csv, train, transform, color_profile=None):
-        if tilt_fix: 
-            self.fix_loader = self.tilt_loader
-            self.angle = range(-45, 45)
-            self.need_fixing = True 
-        elif color_adv:
-            assert color_profile is not None 
-            self.return_colors = True 
-            # self.fix_loader = self.w_color2
-            if color_profile in [3, 42, 21, 16, 13, 9, 12, 35, 47, 5, 14, 44, 43, 39, 38, 34, 18, 17, 2, 18]:
-                self.fix_loader, fn_str = self.w_color, "w_color"
-            elif color_profile in [24, 25, 40, 41, 49, 23, 32, 28, 48, 29, 27, 26]:
-                self.fix_loader, fn_str = self.w_color3, "w_color3"
-            elif color_profile in [50, 51, 52, 53, 54, 55, 56, 57]:
-                self.fix_loader, fn_str = self.w_color2, "w_color2"
+    def aug_setup(self, color_adv, train, transform, color_profile=None):
+        assert color_adv and color_profile is not None 
+    
+        self.return_colors = True 
+        # self.fix_loader = self.w_color2
+        if color_profile in [3, 42, 21, 16, 13, 9, 12, 35, 47, 5, 14, 44, 43, 39, 38, 34, 18, 17, 2, 18]:
+            self.fix_loader, fn_str = self.w_color, "w_color"
+        elif color_profile in [24, 25, 40, 41, 49, 23, 32, 28, 48, 29, 27, 26]:
+            self.fix_loader, fn_str = self.w_color3, "w_color3"
+        elif color_profile in [50, 51, 52, 53, 54, 55, 56, 57]:
+            self.fix_loader, fn_str = self.w_color2, "w_color2"
 
-            if color_profile in [3, 42, 24, 25, 40, 41, 49, 23, 32, 48, 34, 18, 17, 2]:
-                self.mode, self.p = "norm", -1
-            elif color_profile in [21, 5, 38, 27, 26, 50, 51, 52, 53]:
-                self.mode, self.p = "l2", 2
-            elif color_profile in [16, 13, 9, 12, 35, 47, 28, 14, 44, 43, 39, 29, 54, 55, 56, 57]:
-                self.mode, self.p = "l1", 1
-            
-            if color_profile in [3, 42, 25, 21, 9, 35, 28, 43, 38, 34, 18, 54, 50, ]:
-                self.wt = 10
-            elif color_profile in [24, 40, 41, 49, 23, 16, 12, 47, 48, 39, 29, 27, 2, 55, 51]:
-                self.wt = 1000
-            elif color_profile in [32, 13, 44, 17, 56, 52]:
-                self.wt = 1
-            elif color_profile in [5, 14, 26, 57, 53]:
-                self.wt = 100
-            
-            if color_profile in [3, 25, 24, 23, 32, 21, 16, 13, 9, 12, 28, 5, 14, 29, 27, 26, 18, 17, 2, 50, 51, 52, 53, 54, 55, 56, 57]:
-                dim = 32
-            elif color_profile in [42, 49, 47, 48, 44, 43]:
-                dim = 64
-            elif color_profile in [40, 41, 35, 39, 38, 34]:
-                dim = 16
+        if color_profile in [3, 42, 24, 25, 40, 41, 49, 23, 32, 48, 34, 18, 17, 2]:
+            self.mode, self.p = "norm", -1
+        elif color_profile in [21, 5, 38, 27, 26, 50, 51, 52, 53]:
+            self.mode, self.p = "l2", 2
+        elif color_profile in [16, 13, 9, 12, 35, 47, 28, 14, 44, 43, 39, 29, 54, 55, 56, 57]:
+            self.mode, self.p = "l1", 1
+        
+        if color_profile in [3, 42, 25, 21, 9, 35, 28, 43, 38, 34, 18, 54, 50, ]:
+            self.wt = 10
+        elif color_profile in [24, 40, 41, 49, 23, 16, 12, 47, 48, 39, 29, 27, 2, 55, 51]:
+            self.wt = 1000
+        elif color_profile in [32, 13, 44, 17, 56, 52]:
+            self.wt = 1
+        elif color_profile in [5, 14, 26, 57, 53]:
+            self.wt = 100
+        
+        if color_profile in [3, 25, 24, 23, 32, 21, 16, 13, 9, 12, 28, 5, 14, 29, 27, 26, 18, 17, 2, 50, 51, 52, 53, 54, 55, 56, 57]:
+            dim = 32
+        elif color_profile in [42, 49, 47, 48, 44, 43]:
+            dim = 64
+        elif color_profile in [40, 41, 35, 39, 38, 34]:
+            dim = 16
 
-            if color_profile in [3, 42, 24, 25, 40, 9, 12, 35, 47, 28, 5, 48, 43, 39, 34, 29, 27, 26, 2]:
-                sigma, sigma_fn = True , "0.001"
-            elif color_profile in [41, 49, 23, 32, 21, 16, 13, 14, 44, 38, 18, 17, 50, 51, 52, 53, 54, 55, 56, 57]:
-                sigma, sigma_fn = False , "N/A"
-
-            
-
-            if sigma == True:
-                self.histblock = RGBuvHistBlock(insz=224, h=dim,  intensity_scale=False,  method='inverse-quadratic', device='cpu', sigma=0.001)
-                print(f"RGBuvHistBlock(insz=224, h={dim},  intensity_scale=False,  method='inverse-quadratic', device='cpu', sigma=0.001)")
-            else:
-                self.histblock = RGBuvHistBlock(insz=224, h=dim,  intensity_scale=False,  method='inverse-quadratic', device='cpu')
-                print(f"RGBuvHistBlock(insz=224, h={dim},  intensity_scale=False,  method='inverse-quadratic', device='cpu')")
+        if color_profile in [3, 42, 24, 25, 40, 9, 12, 35, 47, 28, 5, 48, 43, 39, 34, 29, 27, 26, 2]:
+            sigma, sigma_fn = True , "0.001"
+        elif color_profile in [41, 49, 23, 32, 21, 16, 13, 14, 44, 38, 18, 17, 50, 51, 52, 53, 54, 55, 56, 57]:
+            sigma, sigma_fn = False , "N/A"
 
         
-            print(f"{self.mode}:{self.p}, {self.wt}, {fn_str}, {sigma_fn}")
-            # self.histblock = RGBuvHistBlock_Original(insz=224, h=32,  intensity_scale=False,  method='RBF', device='cpu', sigma=0.001)
-            # print("RGBuvHistBlock_Original(insz=224, h=32,  intensity_scale=False,  method='RBF', device='cpu', sigma=0.001)")
-            self.need_fixing = True 
 
-            if train:
-                normalize = transform.transforms[-2]
-                self.de_normalize = UnNormalize(mean=normalize.mean, std=normalize.std)
-        elif all_lr:
-            self.random_augs = [
-                partial(create_low_res, low_res=(16,64)), 
-                partial(create_blur_motion, motion_blur=(8,20), motion_blur_angle=(0,180),),
-                partial(create_g_blur, g_blur=[4,22]),
-                ]
-            self.lr_aug = True 
-            self.fix_loader = self.apply_lr_aug
-            self.need_fixing = True  
-        elif prcc_lr:
-            self.random_augs = [
-                partial(create_low_res, low_res=(16,64)), 
-                partial(create_g_blur, g_blur=[4,22]),
-                ]
-            self.lr_aug = True 
-            self.fix_loader = self.apply_lr_aug
-            self.need_fixing = True  
+        if sigma == True:
+            self.histblock = RGBuvHistBlock(insz=224, h=dim,  intensity_scale=False,  method='inverse-quadratic', device='cpu', sigma=0.001)
+            print(f"RGBuvHistBlock(insz=224, h={dim},  intensity_scale=False,  method='inverse-quadratic', device='cpu', sigma=0.001)")
+        else:
+            self.histblock = RGBuvHistBlock(insz=224, h=dim,  intensity_scale=False,  method='inverse-quadratic', device='cpu')
+            print(f"RGBuvHistBlock(insz=224, h={dim},  intensity_scale=False,  method='inverse-quadratic', device='cpu')")
 
-    def tilt_loader(self, img_path):
-        img = read_image(img_path)
-        angle = random.choice(self.angle)
-        im_rotate = img.rotate(angle, expand=True)
-        # im_rotate = img.rotate(angle)
-        # img.save("temp.png"), im_rotate.save("temp2.png")
+    
+        print(f"{self.mode}:{self.p}, {self.wt}, {fn_str}, {sigma_fn}")
+        # self.histblock = RGBuvHistBlock_Original(insz=224, h=32,  intensity_scale=False,  method='RBF', device='cpu', sigma=0.001)
+        # print("RGBuvHistBlock_Original(insz=224, h=32,  intensity_scale=False,  method='RBF', device='cpu', sigma=0.001)")
+        self.need_fixing = True 
 
-        img = self.transform(img)
-        im_rotate = self.transform(im_rotate)        
-        # save_image(img, "temp.png"), save_image(im_rotate, "temp2.png")
-        return  torch.stack([img , im_rotate])
-        
+        if train:
+            normalize = transform.transforms[-2]
+            self.de_normalize = UnNormalize(mean=normalize.mean, std=normalize.std)
+    
     def w_color(self, img_path):
         img = read_image(img_path)
         # img.save("temp0.png")
@@ -315,37 +280,10 @@ class Video_as_Image_fixes(Video_as_Image):
         
         return img , hist_image
 
-    def w_pose_label(self, img_path):
-        img = read_image(img_path)
-        # img.save("temp0.png")
-        img = self.transform(img)
-        
-        indentifier = self.indentifier_fn(img_path)
-        pose_label = int(self.pose_label[indentifier])
-        
-        return img , pose_label
-    
-    def apply_lr_aug(self, img_path):
-        img_hr = read_image(img_path)
-        # img_hr.save("temp0.png")
-        
-        aug_fn = random.choice(self.random_augs)
-        img_lr = aug_fn(img_hr=img_hr)
-        # img_lr.save("temp1.png")
-
-        img_hr = self.transform(img_hr)
-        img_lr = self.transform(img_lr)
-
-        # save_image(img_hr, "temp.png"), save_image(img_lr, "temp2.png")
-        return img_hr , img_lr
-    
     def fixed_fn (self, img_path):
-        if self.return_colors or self.POSE:
+        if self.return_colors :
             img , color_label = self.fix_loader(img_path)
             return img , color_label
-        elif self.lr_aug:
-            img , img_lr = self.fix_loader(img_path)
-            return img , img_lr
         else:
             img = self.fix_loader(img_path)
             return img, None  
@@ -368,7 +306,7 @@ class ImageDataset_fixes(Video_as_Image_fixes):
         img , extra_data = self.fixed_fn (img_path)    
         
         cloth_id_batch = torch.tensor(clothes_id, dtype=torch.int64)
-        if self.return_colors or self.POSE or self.lr_aug:
+        if self.return_colors :
             return img, pid,camid, clothes_id,cloth_id_batch, np.asarray(aux_info).astype(np.float64), extra_data    
         return img, pid,camid, clothes_id,cloth_id_batch, np.asarray(aux_info).astype(np.float64)
 

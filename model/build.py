@@ -4,8 +4,6 @@ from .eva_cloth_embed import *
 from .eva_cloth_vid import eva02_brute_3D
 
 from .ez_eval_cloth_vid import ez_eva02_vid
-
-from .cal_resnet import *
 from .ez_eva_custom import * 
 
 __factory = {
@@ -14,10 +12,7 @@ __factory = {
     'eva02_meta_cloth_l':eva02_large_patch14_clip_224_meta_cloth,
     'eva02_l_cloth':eva02_large_patch14_clip_224_cloth,
     
-
     'eva02_l_noclip':eva02_large_patch14_224_cloth, 
-    
-    # 'eva02_small_cloth' : eva02_small_cloth, 
     'eva02_base_cloth':eva02_base_cloth, 
     
 
@@ -26,14 +21,7 @@ __factory = {
     'ez_eva02_vid': ez_eva02_vid, 
     ## IMAGE 
     'eva02_img_extra_token': eva02_img_extra_token, 
-    'eva02_img_extra_token_pose': eva02_img_extra_token_pose, 
-    'eva02_img_extra_token_gender': eva02_img_extra_token_gender,
-    'eva02_img_extra_token_gender2': eva02_img_extra_token_gender2,
-    'eva02_img_extra_token_pose_color': eva02_img_extra_token_pose_color,
-    'eva02_img_extra_token_contour' : eva02_img_extra_token_contour, 
     'eva02_img_extra_token_attribute' : eva02_img_extra_token_attribute, 
-    'eva02_img_extra_dist_token_gender': eva02_img_extra_dist_token_gender, 
-    'eva02_img_extra_token_pose_color_contour' : eva02_img_extra_token_pose_color_contour, 
     'eva02_img_extra_token_feed': eva02_img_extra_token_feed, 
     'eva02_img_extra_token_CL' : eva02_img_extra_token_CL, 
     'eva02_img_extra_token_base': eva02_img_extra_token_base, 
@@ -43,18 +31,11 @@ __factory = {
     
     ## VIDEO
     'ez_eva02_vid_hybrid': ez_eva02_vid_hybrid,
-    'ez_eva02_vid_hybrid_pose': ez_eva02_vid_hybrid_pose,
     'ez_eva02_vid_hybrid_extra': ez_eva02_vid_hybrid_extra, 
-    'ez_eva02_vid_hybrid_pose_color': ez_eva02_vid_hybrid_pose_color,
-    'ez_eva02_vid_hybrid_pose_color_contours' : ez_eva02_vid_hybrid_pose_color_contours, 
-
-
+    
     'EZ_Eva_T1_vid': EZ_Eva_T1_vid, 
     'Eva_img_ST': Eva_img_ST, 
 
-    'C2DResNet50' : C2DResNet50,
-    'AP3DNLResNet50' : AP3DNLResNet50,
-    'NLResNet50' : NLResNet50,
 }
 
 def build_model(config,num_classes,cloth_num):
