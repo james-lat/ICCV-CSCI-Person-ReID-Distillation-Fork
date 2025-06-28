@@ -145,19 +145,11 @@ def build_dataloader(config, local_rank=None, teacher_mode=None, eval_mode=None,
 
         return trainloader, queryloader, galleryloader, dataset, train_sampler, [queryloader, galleryloader]
 
-
     ### IMGAE 
     if 'mevid' in config.DATA.DATASET or 'ccvid' in config.DATA.DATASET:
         IMAGE_DATASET = Video_as_Image
         if dataset_fix:
             IMAGE_DATASET = Video_as_Image_fixes
-        if "rlq" in config.DATA.DATASET and "cont" in config.DATA.DATASET:
-            IMAGE_DATASET = ImageDataset_fixes_RLQ_CONT
-        elif "rlq" in config.DATA.DATASET or "cont" in config.DATA.DATASET: 
-            if config.DATA.RANDOM_FRAMES:
-                IMAGE_DATASET = Video_RLQ
-            else:
-                IMAGE_DATASET = ImageDataset_fixes_RLQ
         
         trainloader = DataLoaderX(dataset=IMAGE_DATASET(dataset=dataset.train, transform=transform_train,aux_info=config.DATA.AUX_INFO, train=True , **kwargs),
                                 sampler=train_sampler,

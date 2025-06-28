@@ -1,5 +1,8 @@
 ## Setup 
 
+Do Git Clone 
+`git clone git@github.com:ppriyank/ICCV-CSCI-Person-ReID.git`
+
 ```
 conda create --name pathak python=3.8
 conda activate pathak

@@ -305,6 +305,9 @@ class Eva(nn.Module):
             self.state_dict()[i.replace('module.', '')].copy_(param_dict[i])
         print('Loading pretrained model from {}'.format(trained_path))
 
+
+
+
 class EvaAttention_joint(EvaAttention_img):
     def forward(self, x, rope: Optional[torch.Tensor] = None, attn_mask: Optional[torch.Tensor] = None,):
 
@@ -345,7 +348,6 @@ class EvaAttention_joint(EvaAttention_img):
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
-
 
 class EvaAttention_sep_joint(EvaAttention_img):
     
@@ -581,7 +583,6 @@ class EvaBlock_time(EvaBlock_img):
             self.attn.num_head_tokens = 2
             return self.video_forward(x=x, rope=rope, attn_mask=attn_mask)
         
-
 class EvaBlock_joint(EvaBlock_time):
 
     def __init__( self, dim: int, norm_layer: Callable = LayerNorm, scale_attn_inner: bool = False, 
