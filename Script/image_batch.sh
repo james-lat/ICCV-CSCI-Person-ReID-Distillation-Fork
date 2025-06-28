@@ -107,13 +107,6 @@ CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_pe
 
 
 
-
-        
-        
-    
-        
-        
-    
 ############################## CCVID ##############################
 ccvid=/home/c3-0/datasets/CCVID
 CONFIG=configs/ccvid_eva02_l_cloth.yml
@@ -131,11 +124,11 @@ ROOT=$mevid
 PORT=12361
 
 
-# # VANILL IMAGE TRAIN 
-# SEED=1244
-# CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-#     train.py --config_file $CONFIG DATA.ROOT $ROOT \
-#     OUTPUT_DIR $DATASET"_ONLY_IMG" SOLVER.SEED $SEED >> ucf_output/"$DATASET"_img_nocloth-$SEED.txt    
+# VANILL IMAGE TRAIN 
+SEED=1244
+CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
+    train.py --config_file $CONFIG DATA.ROOT $ROOT \
+    OUTPUT_DIR $DATASET"_ONLY_IMG" SOLVER.SEED $SEED >> ucf_output/"$DATASET"_img_nocloth-$SEED.txt    
 
 
 
@@ -146,9 +139,9 @@ PORT=12361
 
 
 
-    # teacher_student.py --resume --config_file $CONFIG DATA.ROOT $ROOT OUTPUT_DIR $DATASET"_COLOR" TRAIN.TRAIN_VIDEO True MODEL.MOTION_LOSS True TEST.WEIGHT $wt TRAIN.HYBRID True \
-    # TRAIN.DIR_TEACH1 $ROOT TRAIN.TEACH1_MODEL None TRAIN.TEACH1_LOAD_AS_IMG True TRAIN.TEACH1 $DATASET MODEL.EXTRA_DIM $DIM  \
-    # MODEL.NAME 'ez_eva02_vid_hybrid_extra' TRAIN.TEACH_DATASET_FIX 'color_adv' TRAIN.COLOR_ADV True >> outputs/"$DATASET"_Co-ONLY_$NAME-newton.txt    
+# teacher_student.py --resume --config_file $CONFIG DATA.ROOT $ROOT OUTPUT_DIR $DATASET"_COLOR" TRAIN.TRAIN_VIDEO True MODEL.MOTION_LOSS True TEST.WEIGHT $wt TRAIN.HYBRID True \
+# TRAIN.DIR_TEACH1 $ROOT TRAIN.TEACH1_MODEL None TRAIN.TEACH1_LOAD_AS_IMG True TRAIN.TEACH1 $DATASET MODEL.EXTRA_DIM $DIM  \
+# MODEL.NAME 'ez_eva02_vid_hybrid_extra' TRAIN.TEACH_DATASET_FIX 'color_adv' TRAIN.COLOR_ADV True >> outputs/"$DATASET"_Co-ONLY_$NAME-newton.txt    
 
 
 # #### vid-ez E2E (w/ pretrained) NoAd + ML + CCVID + Colors (Extra Token) [RANDOM FRAMES]

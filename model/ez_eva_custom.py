@@ -225,86 +225,6 @@ class Eva_Extra_Token_att(Eva_Extra_Token):
         )
 
 
-class Eva_extra2(Eva_Image):
-    def __init__(
-        self, embed_dim: int = 768, depth: int = 12, head_init_scale: float = 0.001, drop_rate: float = 0., **kwargs):
-        super().__init__(embed_dim=embed_dim, depth=depth, extra_tokens=2, head_init_scale=head_init_scale, drop_rate=drop_rate, **kwargs)
-        
-
-        self.pose_token = nn.Parameter(torch.zeros(1, 1, embed_dim)) 
-        trunc_normal_(self.pose_token, std=.02)
-
-        self.pose_mlp = nn.Sequential(
-                nn.Dropout(drop_rate),
-                nn.Linear(embed_dim, 16) 
-                )
-        trunc_normal_(self.pose_mlp[1].weight, std=.02)
-        self.pose_mlp[1].weight.data.mul_(head_init_scale)
-        self.pose_mlp[1].bias.data.mul_(head_init_scale)
-
-
-        self.gender_mlp = nn.Sequential(
-                nn.Dropout(drop_rate),
-                nn.Linear(embed_dim, 2) 
-                )
-        trunc_normal_(self.gender_mlp[1].weight, std=.02)
-        self.gender_mlp[1].weight.data.mul_(head_init_scale)
-        self.gender_mlp[1].bias.data.mul_(head_init_scale)
-
-
-        # self.norm = nn.Identity() if use_fc_norm else norm_layer(embed_dim)
-        # self.fc_norm = norm_layer(embed_dim) if use_fc_norm else nn.Identity()
-        # self.head_drop = nn.Dropout(drop_rate)
-        # self.head = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
-        # self.apply(self._init_weights)
-            
-            
-    def forward_features(self, x,cloth_id):
-        x = self.patch_embed(x)
-        if self.cls_token is not None:
-            x = torch.cat((self.cls_token.expand(x.shape[0], -1, -1), x), dim=1)
-
-        # apply abs position embedding
-        if self.pos_embed is not None:
-            if self.training and (cloth_id is not None) :
-                x = x + self.pos_embed + self.cloth_xishu * self.cloth_embed[cloth_id]
-            else:
-                x = x + self.pos_embed 
-        x = self.pos_drop(x)
-
-        x = torch.cat((self.pose_token.expand(x.shape[0], -1, -1), x), dim=1)
-
-        # obtain shared rotary position embedding and apply patch dropout
-        rot_pos_embed = self.rope.get_embed() if self.rope is not None else None
-        if self.patch_drop is not None:
-            x, keep_indices = self.patch_drop(x)
-            if rot_pos_embed is not None and keep_indices is not None:
-                rot_pos_embed = apply_keep_indices_nlc(x, rot_pos_embed, keep_indices)
-
-        for blk in self.blocks:
-            if self.grad_checkpointing and not torch.jit.is_scripting():
-                x = checkpoint(blk, x, rope=rot_pos_embed)
-            else:
-                x = blk(x, rope=rot_pos_embed)
-
-        x = self.norm(x)
-        return x
-
-    def forward(self, x,cloth_id):
-        x = self.forward_features(x,cloth_id)
-        x_pose = x[:, 0]
-        feat = self.forward_head(x[:,1:], pre_logits=True)
-        if not self.training:
-            return feat
-        else:
-            cls_score = self.head(feat)
-            if self.student_mode:
-                return cls_score, feat
-            pose_labels = self.pose_mlp(x_pose)
-            gender_labels = self.gender_mlp(feat)
-            return cls_score, feat, x_pose, pose_labels, gender_labels
-
-
 class Eva_Extra_Token_Feed(Eva_Extra_Token):
     def __init__(self, config=None, embed_dim=768, mlp_ratio=None, num_head_tokens=2, layer_disentangle=None, **kwargs):
         super().__init__(config=config, embed_dim=embed_dim, num_head_tokens=num_head_tokens, mlp_ratio=mlp_ratio, **kwargs)
@@ -362,7 +282,6 @@ class Eva_Extra_Token_Feed(Eva_Extra_Token):
             return cls_score, feat, extra_token, extra_token_feats, distentangle_loss
             # score, feat, color_output, color_feats, dist_loss = model(samples, clothes)
 
-    
 
 class Eva_No_Extra_Token(Eva_Image):
     def __init__(self, config=None, embed_dim=768, **kwargs):
@@ -515,21 +434,7 @@ class EZ_Eva_Extra_tokens_Pose(EZ_Eva_Hybrid):
 
         self.layer_disentangle = config.TRAIN.LAYER_DISESNTANGLE
         self.distentangle = Cosine_Disentangle()
-
-        if config.DATA.POSE_TYPE is not None:
-            pose_clusters = int(config.DATA.POSE_TYPE.split("_")[-1])
-            self.mlp = nn.Sequential(
-                    nn.Dropout(0.0),
-                    nn.Linear(embed_dim, pose_clusters + 1) 
-                    )
-        elif config.DATA.CONT_TYPE is not None:
-            cont_clusters = int(config.DATA.CONT_TYPE.split("_")[-1])
-            self.mlp = nn.Sequential(
-                    nn.Dropout(0.0),
-                    nn.Linear(embed_dim, cont_clusters ) 
-            )
-        else:
-            self.mlp = nn.Identity()
+        self.mlp = nn.Identity()
 
         self.extra_pos_in_temporal = nn.Parameter(torch.zeros(1, 1, embed_dim))
         trunc_normal_(self.extra_pos_in_temporal, std=.02)
@@ -836,15 +741,6 @@ def eva02_img_extra_token_base(pretrained=False, **kwargs):
     return model
 
 
-
-
-@register_model
-def eva02_img_extra_token_gender(pretrained=False, **kwargs):
-    model_args['global_pool'] = kwargs.pop('global_pool', 'token')
-    variant= 'eva02_large_patch14_clip_224'
-    kwargs.update(model_args)
-    model = build_model_with_cfg(Eva_Extra_Token_gender, variant, pretrained=pretrained, pretrained_filter_fn=checkpoint_filter_fn_for_extra_token, **kwargs)
-    return model
 
 
 @register_model

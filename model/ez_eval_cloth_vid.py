@@ -494,6 +494,8 @@ class EvaAttention_masked_joint(EvaAttention_sep_joint):
         x = self.proj_drop(x)
         return x
 
+
+
 class EvaBlock_time(EvaBlock_img):
 
     def __init__(self, dim: int, proj_drop: float = 0., tim_dim=4, use_adapter=False, num_head_img_tokens=1, sep_attn_for_img=None, 
@@ -774,7 +776,7 @@ class EZ_Eva(Eva):
         for i in param_dict:
             if (self.use_temporal_avg or (not load_head)) and (
                 ("module.head.weight" == i ) or ("module.head.bias" == i ) or ("head.weight" == i ) or ("head.bias" == i ) or ("head_image.weight" == i ) or ("head_image.bias" == i )
-            ):
+               ):
                 print("===", i )
                 continue 
             self.state_dict()[i.replace('module.', '')].copy_(param_dict[i])

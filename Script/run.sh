@@ -30,7 +30,12 @@ DATASET="ccvid"
 ROOT=$ccvid
 PORT=12357
 
-
+#################### MEVID ####################
+mevid=/data/priyank/synthetic/MEVID/
+CONFIG=configs/mevid_eva02_l_cloth.yml
+DATASET="mevid"
+ROOT=$mevid
+PORT=12359
 
 
 ###############################################################################################
@@ -120,194 +125,6 @@ CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_pe
 
 
 
-
-
-
-
-
-
-
-
-# #### Clothes Disentanlge
-PORT=12351
-SEED=1244
-COLOR=-1
-CUDA_VISIBLE_DEVICES=1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --config_file $CONFIG DATA.ROOT $ROOT DATA.DATASET $DATASET MODEL.NAME 'eva02_img_extra_token_CL' \
-    TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED 
-    # >> outputs/"$DATASET"-CL-UCF2-RUN-$SEED.txt
-
-
-
-    
-    
-    
-
-
-# Img + Train Dump + GRAD_CAM 
-IMG_WT=logs/prcc+_IMG/eva02_l_cloth_best.pth
-SEED=1234
-CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --eval --resume --config_file $CONFIG DATA.ROOT $ROOT TEST.WEIGHT $IMG_WT SOLVER.SEED $SEED \
-    TEST.MODE True DATA.DATASET $DATASET TRAIN_DUMP True GRAD_CAM True AUG.RE_PROB 0.0 AUG.RC_PROB 0.0 AUG.RF_PROB 0.0  
-    
-# Img Train Dump  
-IMG_WT=logs/prcc+_IMG/eva02_l_cloth_best.pth
-SEED=1234
-CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --eval --resume --config_file $CONFIG DATA.ROOT $ROOT TEST.WEIGHT $IMG_WT SOLVER.SEED $SEED \
-    TEST.MODE True DATA.DATASET $DATASET TRAIN_DUMP True AUG.RE_PROB 0.0 AUG.RC_PROB 0.0 AUG.RF_PROB 0.0 TAG "PRCC-TRAIN" 
-    
-
-###############################################################################################
-################################ # Img + COLOR EVAL ###################################################
-IMG_WT='logs/PRCC/prcc-9-1245-16/eva02_img_extra_token_best.pth'
-COLOR=9
-SEED=1234
-CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --eval --resume --config_file $CONFIG DATA.ROOT $ROOT TEST.WEIGHT $IMG_WT SOLVER.SEED $SEED \
-    MODEL.NAME 'eva02_img_extra_token' TRAIN.COLOR_PROFILE $COLOR TEST.MODE True TAG "PRCC-Co-$COLOR" AUX_DUMP True 
-    #  >> outputs/"$DATASET"_CO-$COLOR-EVAL_img-RUN-$SEED.txt    
-# EVA-attribure.train:  CC :  CMC curve, Rank-1  :65.9%  Rank-5  :75.2%  Rank-10 :79.3%
-# EVA-attribure.train:  CC :  mAP Acc. :61.1%
-# EVA-attribure.train:  SC:  CMC curve, Rank-1  :100.0%  Rank-5  :100.0%  Rank-10 :100.0%  
-# EVA-attribure.train:  SC:  mAP Acc. :98.8%
-
-#### EARLY RETURN
-IMG_WT='logs/prcc+_Co-9-NW/eva02_img_extra_token_best.pth'
-COLOR=9
-SEED=1234
-BLOCKS=(0 6 12 18) 
-for BLOCK in "${BLOCKS[@]}"
-do  
-    echo $BLOCK
-    CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --eval --resume --config_file $CONFIG DATA.ROOT $ROOT TEST.WEIGHT $IMG_WT SOLVER.SEED $SEED \
-    MODEL.NAME 'eva02_img_extra_token' TRAIN.COLOR_PROFILE $COLOR TEST.MODE True TAG "PRCC-Co-$COLOR-$BLOCK" AUX_DUMP True MODEL.RETURN_EARLY $BLOCK
-done
-
-
-
-# Img + COLOR Train Dump + GRAD_CAM 
-IMG_WT='logs/prcc+_Co-9-NW/eva02_img_extra_token_best.pth'
-COLOR=9
-SEED=1234
-CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --eval --resume --config_file $CONFIG DATA.ROOT $ROOT TEST.WEIGHT $IMG_WT SOLVER.SEED $SEED DATA.DATASET $DATASET \
-    TRAIN.COLOR_ADV True DATA.DATASET_FIX 'color_adv' TRAIN.COLOR_PROFILE $COLOR \
-    MODEL.NAME 'eva02_img_extra_token' TEST.MODE True TAG "PRCC-Co-$COLOR-TRAIN" TRAIN_DUMP True \
-    GRAD_CAM True AUG.RE_PROB 0.0 AUG.RC_PROB 0.0 AUG.RF_PROB 0.0  
-     
-
-
-# Img + COLOR Train Dump  
-IMG_WT='logs/prcc+_Co-9-NW/eva02_img_extra_token_best.pth'
-COLOR=9
-SEED=1234
-CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --eval --resume --config_file $CONFIG DATA.ROOT $ROOT TEST.WEIGHT $IMG_WT SOLVER.SEED $SEED DATA.DATASET $DATASET \
-    TRAIN.COLOR_ADV True DATA.DATASET_FIX 'color_adv' TRAIN.COLOR_PROFILE $COLOR \
-    MODEL.NAME 'eva02_img_extra_token' TEST.MODE True TAG "PRCC-Co-$COLOR-TRAIN" TRAIN_DUMP True AUG.RE_PROB 0 
-    
-
-# #### COLOR + GFLOP AND parameters
-COLOR=5
-SEED=1234
-CUDA_VISIBLE_DEVICES=1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --config_file $CONFIG DATA.ROOT $ROOT DATA.DATASET $DATASET MODEL.NAME 'eva02_img_extra_token' \
-    TRAIN.COLOR_ADV True DATA.DATASET_FIX 'color_adv' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED \
-    OUTPUT_DIR $DATASET+"_Co-$COLOR" ANALYSIS_STATS True  
-# using soft triplet loss for training
-#  Model parameters: 311,874,302
-# Computational complexity: 78.13 GMac
-# Computational complexity: 156.26 GFlops
-# Number of parameters: 311.87 M
-#  GFLOP USING `thop` 78.05 MACs(G) '# of Params using thop': 302.77M
-# FLOP TOTAL : 84737241266
-# 84. 74
-# FLOP BY MODULES : {'blocks.21.attn.k_proj': 270532608, 'blocks.10.attn.proj': 270532608, 'blocks.9.attn': 1353988096, 'blocks.15.attn.v_proj': 270532608, 'blocks.19.attn.v_proj': 270532608, 'blocks.2.attn.proj': 270532608, 'blocks.8.attn.norm': 1320960, 'blocks.8.attn.k_proj': 270532608, 'blocks.4.attn.v_proj': 270532608, 'blocks.10.attn.v_proj': 270532608, 'blocks.12.attn.k_proj': 270532608, 'blocks.20.attn.k_proj': 270532608, 'blocks.5.attn': 1353988096, 'blocks.1.attn.q_proj': 270532608, 'blocks.17.attn.norm': 1320960, 'blocks.20.attn.proj': 270532608, 'blocks.7.attn.q_proj': 270532608, 'blocks.11.attn': 1353988096, 'blocks.14.attn.k_proj': 270532608, 'blocks.2.attn': 1353988096, 'blocks.21.attn.v_proj': 270532608, 'blocks.21.attn.proj': 270532608, 'blocks.7.attn.norm': 1320960, 'blocks.13.attn.q_proj': 270532608, 'blocks.14.attn.v_proj': 270532608, 'blocks.3.attn.proj': 270532608, 'blocks.13.attn.proj': 270532608, 'blocks.5.attn.v_proj': 270532608, 'blocks.4.attn.k_proj': 270532608, 'blocks.23.attn.q_proj': 270532608, 'blocks.9.attn.q_proj': 270532608, 'blocks.6.attn': 1353988096, 'blocks.9.attn.v_proj': 270532608, 'blocks.11.attn.q_proj': 270532608, 'blocks.7.attn.v_proj': 270532608, 'blocks.7.attn': 1353988096, 'blocks.6.attn.v_proj': 270532608, 'blocks.19.attn.norm': 1320960, 'blocks.1.attn.norm': 1320960, 'blocks.8.attn.v_proj': 270532608, 'blocks.18.attn.k_proj': 270532608, 'blocks.10.attn': 1353988096, 'blocks.16.attn.norm': 1320960, 'blocks.6.attn.proj': 270532608, 'blocks.2.attn.norm': 1320960, 'blocks.14.attn': 1353988096, 'blocks.22.attn.k_proj': 270532608, 'blocks.17.attn': 1353988096, 'blocks.2.attn.k_proj': 270532608, 'blocks.14.attn.norm': 1320960, 'blocks.3.attn.norm': 1320960, 'blocks.22.attn.q_proj': 270532608, 'blocks.23.attn.proj': 270532608, 'blocks.19.attn.proj': 270532608, 'blocks.22.attn.v_proj': 270532608, 'blocks.1.attn.k_proj': 270532608, 'blocks.6.attn.norm': 1320960, 'blocks.12.attn.norm': 1320960, 'blocks.19.attn': 1353988096, 'blocks.3.attn.v_proj': 270532608, 'blocks.0.attn.q_proj': 270532608, 'blocks.22.attn': 1353988096, 'blocks.3.attn.q_proj': 270532608, 'blocks.2.attn.q_proj': 270532608, 'blocks.10.attn.norm': 1320960, 'blocks.21.attn': 1353988096, 'blocks.15.attn': 1353988096, 'blocks.16.attn.q_proj': 270532608, 'blocks.13.attn.k_proj': 270532608, 'blocks.8.attn.q_proj': 270532608, 'blocks.3.attn': 1353988096, 'blocks.11.attn.proj': 270532608, 'blocks.0.attn.norm': 1320960, 'blocks.20.attn': 1353988096, 'blocks.5.attn.proj': 270532608, 'blocks.9.attn.proj': 270532608, 'blocks.11.attn.k_proj': 270532608, 'blocks.3.attn.k_proj': 270532608, 'blocks.0.attn.proj': 270532608, 'blocks.21.attn.q_proj': 270532608, 'blocks.7.attn.k_proj': 270532608, 'blocks.18.attn': 1353988096, 'blocks.16.attn.k_proj': 270532608, 'blocks.12.attn': 1353988096, 'blocks.17.attn.v_proj': 270532608, 'blocks.5.attn.norm': 1320960, 'blocks.23.attn': 1353988096, 'blocks.14.attn.q_proj': 270532608, 'blocks.2.attn.v_proj': 270532608, 'blocks.15.attn.q_proj': 270532608, 'blocks.16.attn': 1353988096, 'blocks.6.attn.k_proj': 270532608, 'blocks.4.attn.proj': 270532608, 'blocks.18.attn.v_proj': 270532608, 'blocks.15.attn.k_proj': 270532608, 'blocks.15.attn.norm': 1320960, 'blocks.15.attn.proj': 270532608, 'blocks.13.attn': 1353988096, 'blocks.16.attn.v_proj': 270532608, 'blocks.7.attn.proj': 270532608, 'blocks.10.attn.k_proj': 270532608, 'blocks.14.attn.proj': 270532608, 'blocks.12.attn.proj': 270532608, 'blocks.6.attn.q_proj': 270532608, 'blocks.1.attn.proj': 270532608, 'blocks.12.attn.q_proj': 270532608, 'blocks.4.attn.norm': 1320960, 'blocks.17.attn.k_proj': 270532608, 'blocks.1.attn.v_proj': 270532608, 'blocks.16.attn.proj': 270532608, 'blocks.9.attn.k_proj': 270532608, 'blocks.18.attn.q_proj': 270532608, 'blocks.18.attn.proj': 270532608, 'blocks.8.attn': 1353988096, 'blocks.11.attn.norm': 1320960, 'blocks.23.attn.norm': 1320960, 'blocks.13.attn.v_proj': 270532608, 'blocks.5.attn.k_proj': 270532608, 'blocks.20.attn.v_proj': 270532608, 'blocks.10.attn.q_proj': 270532608, 'blocks.8.attn.proj': 270532608, 'blocks.1.attn': 1353988096, 'blocks.23.attn.k_proj': 270532608, 'blocks.17.attn.proj': 270532608, 'blocks.20.attn.q_proj': 270532608, 'blocks.4.attn': 1353988096, 'blocks.22.attn.proj': 270532608, 'blocks.11.attn.v_proj': 270532608, 'blocks.9.attn.norm': 1320960, 'blocks.0.attn.k_proj': 270532608, 'blocks.19.attn.q_proj': 270532608, 'blocks.20.attn.norm': 1320960, 'blocks.17.attn.q_proj': 270532608, 'blocks.21.attn.norm': 1320960, 'blocks.0.attn.v_proj': 270532608, 'blocks.13.attn.norm': 1320960, 'blocks.18.attn.norm': 1320960, 'blocks.0.attn': 1353988096, 'blocks.12.attn.v_proj': 270532608, 'blocks.19.attn.k_proj': 270532608, 'blocks.23.attn.v_proj': 270532608, 'blocks.22.attn.norm': 1320960, 'blocks.5.attn.q_proj': 270532608, 'blocks.4.attn.q_proj': 270532608}
-# FLOP BY MODULES : {'blocks.7.attn': 1353988096, 'blocks.10.attn': 1353988096, 'blocks.4.attn': 1353988096, 'blocks.18.attn': 1353988096, 'blocks.23.attn': 1353988096, 'blocks.2.attn': 1353988096, 'blocks.0.attn': 1353988096, 'blocks.14.attn': 1353988096, 'blocks.6.attn': 1353988096, 'blocks.19.attn': 1353988096, 'blocks.8.attn': 1353988096, 'blocks.11.attn': 1353988096, 'blocks.20.attn': 1353988096, 'blocks.17.attn': 1353988096, 'blocks.1.attn': 1353988096, 'blocks.5.attn': 1353988096, 'blocks.21.attn': 1353988096, 'blocks.16.attn': 1353988096, 'blocks.3.attn': 1353988096, 'blocks.9.attn': 1353988096, 'blocks.12.attn': 1353988096, 'blocks.13.attn': 1353988096, 'blocks.22.attn': 1353988096, 'blocks.15.attn': 1353988096}
-# 'blocks.1.attn': 1353988096
-
-
-
-
-
-
-
-
-
-##### Img + COLOR (Extra Token) [FEED COLORS] + GFLOP & NUM PARAMS
-COLOR=5
-CUDA_VISIBLE_DEVICES=1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --config_file $CONFIG DATA.ROOT $ROOT DATA.DATASET $DATASET MODEL.NAME 'eva02_img_extra_token_feed' \
-    TRAIN.COLOR_ADV True DATA.DATASET_FIX 'color_adv' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED \
-    OUTPUT_DIR $DATASET+"_Co-$COLOR-FEED" MODEL.ATT_AS_INPUT True ANALYSIS_STATS True  
-#  Model parameters: 311,874,302
-# Computational complexity: 78.13 GMac
-# Computational complexity: 156.26 GFlops
-# Number of parameters: 311.87 M
-#  GFLOP USING `thop` 78.05 MACs(G) '# of Params using thop': 302.77M
-
-
-
-
-# #### Clothes Disentanlge
-COLOR=-1
-CUDA_VISIBLE_DEVICES=1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --config_file $CONFIG DATA.ROOT $ROOT DATA.DATASET $DATASET MODEL.NAME 'eva02_img_extra_token_CL' \
-    TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED ANALYSIS_STATS True  
-    # >> outputs/"$DATASET"-CL-UCF2-RUN-$SEED.txt
-#  Model parameters: 303,783,298
-# Computational complexity: 78.13 GMac
-# Computational complexity: 156.26 GFlops
-# Number of parameters: 303.78 M
-
-# #### COLOR
-PORT=12351
-SEED=1245
-COLOR=9
-CUDA_VISIBLE_DEVICES=1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --config_file $CONFIG DATA.ROOT $ROOT DATA.DATASET $DATASET MODEL.NAME 'eva02_img_extra_token' \
-    TRAIN.COLOR_ADV True DATA.DATASET_FIX 'color_adv' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED \
-    OUTPUT_DIR $DATASET+"_Co-$COLOR" >> outputs/"$DATASET"-CO-$COLOR-UCF2-RUN-$SEED-FINAL.txt
-
-
-
-
-
-
-
-
-
-
-
-###############################################################################################
-#################### MEVID ####################
-mevid=/data/priyank/synthetic/MEVID/
-CONFIG=configs/mevid_eva02_l_cloth.yml
-wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
-DATASET="mevid"
-ROOT=$mevid
-PORT=12359
-
-casiab=/data/priyank/synthetic/CASIA_B_STAR/
-
-
-###############################################################################################
-################################ # Img EVAL ###################################################
-IMG_WT=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
-SEED=1234
-CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --eval --resume --config_file $CONFIG DATA.ROOT $ROOT TEST.WEIGHT $IMG_WT SOLVER.SEED $SEED TEST.MODE True \
-    TAG "MEVID-IMG" 
-
-    
-# Img Train
-SEED=1234
-CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --config_file $CONFIG DATA.ROOT $ROOT SOLVER.SEED $SEED >> outputs/"$DATASET"_img-RUN-$SEED.txt    
-
 # #### COLOR
 SEED=1245
 COLOR=39
@@ -320,11 +137,9 @@ CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_pe
 
 
 
-# #### COLOR
-SEED=1245
-COLOR=39
-CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    teacher_student.py --multi-node --resume --config_file $CONFIG DATA.ROOT $ROOT TRAIN.TRAIN_VIDEO True MODEL.MOTION_LOSS True TRAIN.TEACH1 $DATASET TEST.WEIGHT $wt TRAIN.HYBRID True \
+
+    teacher_student.py --multi-node 
+    MODEL.MOTION_LOSS True TRAIN.TEACH1 $DATASET TEST.WEIGHT $wt TRAIN.HYBRID True \
     TRAIN.DIR_TEACH1 $ROOT TRAIN.TEACH1_MODEL None TRAIN.TEACH1_LOAD_AS_IMG True TRAIN.TEACH_DATASET_FIX 'color_adv' TRAIN.COLOR_ADV True \
     OUTPUT_DIR $DATASET"_COLOR"-$SEED \
     MODEL.NAME 'ez_eva02_vid_hybrid_extra' TRAIN.COLOR_PROFILE $COLOR SOLVER.MAX_EPOCHS 100 SOLVER.SEED $SEED  

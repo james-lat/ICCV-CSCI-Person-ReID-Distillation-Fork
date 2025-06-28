@@ -138,11 +138,7 @@ def setup_model(cfg, args, logger, dataset, ):
     if args.resume:
         logger.info(f"\n *** Resuming From : {cfg.TEST.WEIGHT} ***  \n ")
         load_head = (not args.no_head)
-        if args.cal_eval:
-            checkpoint = torch.load(cfg.TEST.WEIGHT)
-            model.load_state_dict(checkpoint['model_state_dict'], strict=True)
-        else:
-            model.load_param(cfg.TEST.WEIGHT, load_head=load_head)
+        model.load_param(cfg.TEST.WEIGHT, load_head=load_head)
     loss_func, center_criterion = make_loss(cfg, num_classes=dataset.num_train_pids)
 
     optimizer, optimizer_center = make_optimizer(cfg, model, center_criterion)

@@ -35,6 +35,11 @@ module --ignore_cache load gcc/gcc-11.2.0
 cho -e '\n\n' + "*"{,,,,,,,,,,,,,,,,}
 echo $SLURM_JOB_ID $SLURM_JOB_NODELIST
 echo $CONDA_DEFAULT_ENV
+
+cd ~/ICCV-CSCI-Person-ReID/
+mkdir newton_output
+
+
 scontrol write batch_script $SLURM_JOB_ID
 mv slurm-$SLURM_JOB_ID.sh outputs/
 rsync -a outputs/slurm-$SLURM_JOB_ID.sh ucf2:~/MADE_ReID/outputs/
@@ -49,23 +54,6 @@ RUN_NO=1
 
 ENV='nccl'
 
-#################### LTCC ####################
-ltcc=/groups/yrawat/LTCC/
-CONFIG=configs/ltcc_eva02_l_cloth.yml
-DATASET="ltcc"
-ROOT=$ltcc
-PORT=12345
-
-
-#################### PRCC ####################
-prcc=/groups/yrawat/PRCC/
-CONFIG=configs/prcc_eva02_l_cloth.yml
-DATASET="prcc"
-ROOT=$prcc
-PORT=12351
-
-
-
 
 ############################## CCVID ##############################
 ccvid=/datasets/CCVID-lzo/
@@ -76,17 +64,39 @@ ROOT=$ccvid
 PORT=12357
 
 
+# ############################## MEVID ##############################
+# mevid=/datasets/MEVID-lzo
+# CONFIG=configs/mevid_eva02_l_cloth.yml
+# wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
+# DATASET="mevid"
+# ROOT=$mevid
+# PORT=12362
 
-############################## MEVID ##############################
-mevid=/datasets/MEVID-lzo
-CONFIG=configs/mevid_eva02_l_cloth.yml
-wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
-DATASET="mevid"
-ROOT=$mevid
-PORT=12362
 
-casiab=/home/c3-0/datasets/CASIA_B_STAR/
-NLR50_Wt=logs/CASIA_B_STAR/CAL_casiab/NLR50_16_224/best_model.pth.tar
+
+
+####### EZ CLIP Baseline (no clothes / colors)
+#### vid-ez E2E (w/ pretrained) NoAd + Motion LOSS
+SEED=1245
+CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
+    train.py --env $ENV --resume --config_file $CONFIG DATA.ROOT $ROOT \
+    MODEL.NAME 'ez_eva02_vid' TRAIN.TRAIN_VIDEO True TEST.WEIGHT $wt MODEL.MOTION_LOSS True SOLVER.SEED $SEED SOLVER.MAX_EPOCHS 100 >> outputs/"$DATASET"_4T_NoAd_e2e_pre_ml-RUN-$SEED-EP100.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # # #### COLOR
