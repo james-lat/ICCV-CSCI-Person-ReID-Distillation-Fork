@@ -127,18 +127,9 @@ class Video_as_Image_fixes(Video_as_Image):
         self.datatset_name = datatset_name
         self.need_fixing = need_fixing
         
-        prcc_lr = None
-        all_lr = None 
-        # if "prcc" in datatset_name or "deepchange" in datatset_name:
-        #     prcc_lr = True 
-        #     all_lr = False 
-        # else:
-        #     all_lr = True 
-        #     prcc_lr = False
-
         self.aug_setup(color_adv, train, transform, color_profile=color_profile)
 
-        if "prcc" in datatset_name or "last" in datatset_name:
+        if "prcc" in datatset_name:
             self.indentifier_fn = self.prcc_indentifier
         else:
             self.indentifier_fn = self.simple_identifier
@@ -295,7 +286,7 @@ class Video_as_Image_fixes(Video_as_Image):
         img , extra_data = self.fixed_fn (img_path)    
 
         cloth_id_batch = torch.tensor(clothes_id, dtype=torch.int64)
-        if self.return_colors or self.POSE:
+        if self.return_colors :
             return img, pid,camid, clothes_id,cloth_id_batch, np.asarray(aux_info).astype(np.float64), extra_data    
         return img, pid,camid, clothes_id,cloth_id_batch, np.asarray(aux_info).astype(np.float64)
 

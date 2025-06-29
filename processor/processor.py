@@ -322,6 +322,92 @@ def do_train(cfg,
         torch.save(model.state_dict(), os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + '_last.pth'))
   
 
+def do_train_w_teachers(cfg,
+             model,
+             center_criterion,
+             train_loader,
+             optimizer,
+             optimizer_center,
+             scheduler,
+             loss_fn,
+             local_rank,
+             dataset,
+             val_loader = None,
+             val_loader_same = None,
+             eval=None, save5=None, TRAIN_step_FN=train_step, TRAIN_ext_step_FN=train_step,
+             teacher_trainloader=None, teacher_dataset=None, training_mode="image", teacher_training_mode="video", queryloader=None, galleryloader=None, threshold_drop=10, **kwargs):
+
+    eval_period, device, epochs, logger, train_writer, rank_writer, \
+        mAP_writer, loss_meter, acc_meter, scaler = set_train_methods(cfg, model, local_rank)
+    
+    evaluator_diff, evaluator_general, evaluator_same, evaluator = evaluator_gen(cfg, dataset)
+
+    loss_meter_teacher = AverageMeter()
+    acc_meter_teacher = AverageMeter()
+    best_rank1 = -np.inf
+    best_map = -np.inf
+    best_epoch = 0
+    mAP = 0 
+    best_map_dict = defaultdict(int)
+    best_rank1_dict = defaultdict(int)
+    start_train_time = time.time()
+    
+    if eval:
+        rank1, mAP, _, _ =  evaluate_fn(cfg, model, val_loader, logger, evaluator_diff, evaluator_same, val_loader_same, device, -1, rank_writer, mAP_writer, dataset, eval_mode=cfg.TEST.MODE, evaluator=evaluator, dump=True, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader)    
+        logger.info("==> EVAL: Rank-1 {:.1%}, Map {:.1%} achieved".format(rank1, mAP))
+        return 
+    idx =0            
+    DEFAULT_LOADER=default_img_loader
+    logger.info('start training')
+    logger.info("Train Start !!")
+    
+    for epoch in range(cfg.TRAIN.START_EPOCH, epochs + 1):
+        start_time = time.time()
+        loss_meter.reset()
+        loss_meter_teacher.reset()
+
+        acc_meter.reset()
+        acc_meter_teacher.reset()
+
+        scheduler.step(epoch)
+        if not cfg.TRAIN.DEBUG:
+            logger.info("==> Teacher Training .... ")
+            # model.module.student_mode = True
+            model.student_mode = True 
+            TRAIN_ext_step_FN(cfg, model, teacher_trainloader, optimizer,  optimizer_center,  loss_fn,  scaler, loss_meter_teacher, acc_meter_teacher, scheduler,   epoch, train_writer=train_writer, training_mode=teacher_training_mode, **kwargs )    
+                            # cfg, model, train_loader,        optimizer,  optimizer_center,   loss_fn, scaler, loss_meter,         acc_meter,         scheduler,   epoch, train_writer=train_writer, training_mode=training_mode,         **kwargs )
+            model.student_mode = False 
+            # model.module.student_mode = False
+
+        logger.info("==> Student Training .... ")
+        idx = TRAIN_step_FN(cfg, model, train_loader, optimizer, optimizer_center, loss_fn, scaler, loss_meter, acc_meter, scheduler,  epoch, train_writer=train_writer, training_mode=training_mode, **kwargs )
+        end_time = time.time()
+        time_per_batch = (end_time - start_time) / (idx + 1)
+
+        # name = os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + f'_{epoch}.pth')
+        # torch.save(model.state_dict(), name)
+
+        if epoch % eval_period == 0:
+            best_map, best_rank1, potential_best_epoch, best_rank1_dict, best_map_dict = eval_step(cfg, model, val_loader, evaluator_diff, evaluator_same, val_loader_same, device, epoch, rank_writer, mAP_writer, dataset,
+            best_rank1_dict, best_map_dict, best_rank1, best_map, evaluator=evaluator, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader, threshold_drop=threshold_drop)
+            best_epoch = max(best_epoch, potential_best_epoch)
+        
+        if save5 and epoch % 5 == 0 and dist.get_rank() == 0:
+            torch.save(model.state_dict(), os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + f'_{epoch}.pth'))
+
+    total_time = time.time() - start_train_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    logger.info('Training time {}'.format(total_time_str))
+    logger.info("==> Best Rank-1 {:.1%}, Best Map {:.1%} achieved at epoch {}".format(best_rank1, best_map, best_epoch))
+    if 'mevid' in cfg.DATA.DATASET :
+        st = "\n"
+        for k1, k2 in zip(best_rank1_dict, best_map_dict): st += f" {k1} : {best_rank1_dict[k1]:.1%} & {k2} : {best_map_dict[k2]:.1%} \n"
+        logger.info(f"==> {st}")
+                
+    if dist.get_rank() == 0:
+        torch.save(model.state_dict(), os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + '_last.pth'))
+  
+
 
 ################ Eval ################
 def do_inference(cfg,

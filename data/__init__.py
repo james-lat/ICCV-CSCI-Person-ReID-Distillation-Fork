@@ -86,7 +86,7 @@ def build_vid_transforms(config):
     return spatial_transform_train, spatial_transform_test, temporal_transform_train, temporal_transform_test
 
 
-def build_dataloader(config, local_rank=None, teacher_mode=None, eval_mode=None, rlq=None):
+def build_dataloader(config, local_rank=None, teacher_mode=None, eval_mode=None):
     kwargs = {}
     dataset = build_dataset(config)
     # image dataset
@@ -94,10 +94,7 @@ def build_dataloader(config, local_rank=None, teacher_mode=None, eval_mode=None,
     # transform_train = build_transform(config,is_train=True)
     # transform_test = build_transform(config,is_train=False)
     
-    if 'briar' in config.DATA.DATASET :
-        train_sampler = DistributedRandomIdentitySampler_Briar(dataset.train,
-            num_instances=config.DATA.NUM_INSTANCES, seed=config.SOLVER.SEED)
-    elif config.DATA.SAMPLING_PERCENTAGE and config.DATA.SAMPLING_PERCENTAGE != 100:
+    if config.DATA.SAMPLING_PERCENTAGE and config.DATA.SAMPLING_PERCENTAGE != 100:
         print( f"\n\n\n ONLY USING {config.DATA.SAMPLING_PERCENTAGE}% of Test Pids \n\n\n\n ")
         train_sampler = DistributedRandomIdentitySampler_Percent(dataset.train, num_instances=config.DATA.NUM_INSTANCES, seed=config.SOLVER.SEED, percent= config.DATA.SAMPLING_PERCENTAGE)
     else:

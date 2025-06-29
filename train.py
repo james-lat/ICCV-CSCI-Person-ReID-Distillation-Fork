@@ -134,7 +134,6 @@ def setup_logging(cfg, args, output_dir, dist_local_rank):
 
 def setup_model(cfg, args, logger, dataset, ):
     model = build_model(cfg, dataset.num_train_pids, dataset.num_train_clothes)
-    # model.load_state_dict(checkpoint, strict=True)
     if args.resume:
         logger.info(f"\n *** Resuming From : {cfg.TEST.WEIGHT} ***  \n ")
         load_head = (not args.no_head)
