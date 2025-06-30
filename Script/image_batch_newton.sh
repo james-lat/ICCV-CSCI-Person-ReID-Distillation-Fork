@@ -51,54 +51,38 @@ ENV='nccl'
 
 ############################## CCVID ##############################
 ccvid=/datasets/CCVID-lzo/
+# ccvid=/data/priyank/synthetic/CCVID
 CONFIG=configs/ccvid_eva02_l_cloth.yml
 wt=logs/CCVID/CCVID_IMG/eva02_l_cloth_best.pth
 DATASET="ccvid"
 ROOT=$ccvid
 PORT=12357
-COLOR=34
+
+COLOR=49
+SEED=1245
 
 
 
-# ############################## MEVID ##############################
-# mevid=/datasets/MEVID-lzo
-# CONFIG=configs/mevid_eva02_l_cloth.yml
-# wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
-# DATASET="mevid"
-# ROOT=$mevid
-# PORT=12362
-
-
-
-############################## CCVID ##############################
-# ccvid=/data/priyank/synthetic/CCVID
-# CONFIG=configs/ccvid_eva02_l_cloth.yml
-# DATASET="ccvid"
-# ROOT=$ccvid
-# PORT=12357
-
-# #################### MEVID ####################
+############################## MEVID ##############################
+mevid=/datasets/MEVID-lzo
 # mevid=/data/priyank/synthetic/MEVID/
-# CONFIG=configs/mevid_eva02_l_cloth.yml
-# DATASET="mevid"
-# ROOT=$mevid
-# PORT=12359
-
+CONFIG=configs/mevid_eva02_l_cloth.yml
+wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
+DATASET="mevid"
+ROOT=$mevid
+PORT=12362
 
 
 # ####### EZ CLIP Baseline (no clothes / colors)
 # #### vid-ez E2E (w/ pretrained) NoAd + Motion LOSS
-# SEED=1245
 # CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
 #     train.py --env $ENV --resume --config_file $CONFIG DATA.ROOT $ROOT \
 #     MODEL.NAME 'ez_eva02_vid' TRAIN.TRAIN_VIDEO True TEST.WEIGHT $wt MODEL.MOTION_LOSS True SOLVER.SEED $SEED SOLVER.MAX_EPOCHS 100 >> newton_output/"$DATASET"_4T_NoAd_e2e_pre_ml-RUN-$SEED-EP100.txt
 
 
 
-####### EZ CLIP Baseline (no clothes / colors)
+####### EZ CLIP + COLORS
 #### vid-ez E2E (w/ pretrained) NoAd + Motion LOSS
-COLOR=49
-SEED=1245
 CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
     train_two_step.py --env $ENV --resume --config_file $CONFIG DATA.ROOT $ROOT \
     TRAIN.TRAIN_VIDEO True MODEL.MOTION_LOSS True TRAIN.TEACH1 $DATASET TEST.WEIGHT $wt TRAIN.HYBRID True \
@@ -106,10 +90,11 @@ CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_pe
     MODEL.NAME 'ez_eva02_vid_hybrid_extra' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED OUTPUT_DIR $DATASET-$COLOR-$SEED SOLVER.MAX_EPOCHS 100 SOLVER.LOG_PERIOD 800 >> newton_output/"$DATASET"_4NAEPM+CO-$COLOR-$SEED-Final.txt
     
 
-        
-        
+
 # rsync -a Dump/ccvid-9-1245/ ucf2:~/ICCV-CSCI-Person-ReID/Dump/
         
+        
+
         
         
 

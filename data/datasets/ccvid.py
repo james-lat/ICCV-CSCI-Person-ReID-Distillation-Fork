@@ -78,9 +78,9 @@ class CCVID(object):
         self.query = query
         self.gallery = gallery
 
-        if test_mode:
-            recombined_query = [ recombined_query [ (idx[0] + idx[1]) // 2 ] for i, idx in enumerate(query_vid2clip_index)]
-            recombined_gallery = [ recombined_gallery [ (idx[0] + idx[1]) // 2 ] for i, idx in enumerate(gallery_vid2clip_index)]
+        # if test_mode:
+        #     recombined_query = [ recombined_query [ (idx[0] + idx[1]) // 2 ] for i, idx in enumerate(query_vid2clip_index)]
+        #     recombined_gallery = [ recombined_gallery [ (idx[0] + idx[1]) // 2 ] for i, idx in enumerate(gallery_vid2clip_index)]
 
         self.recombined_query = recombined_query
         self.recombined_gallery = recombined_gallery

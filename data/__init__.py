@@ -34,6 +34,7 @@ def build_dataset(config):
     kwargs = {}
     if config.DATA.RANDOM_FRAMES:
         kwargs["load_as_random_frames"] = True
+    
     if config.DATA.DATASET_SAMPLING_PERCENTAGE:
         dataset = __factory[config.DATA.DATASET](root=config.DATA.ROOT,aux_info=config.DATA.AUX_INFO,meta_dir=config.DATA.META_DIR,meta_dims=config.MODEL.META_DIMS[0], sample_dataset=config.DATA.DATASET_SAMPLING_PERCENTAGE, test_mode=config.TEST.MODE, **kwargs)
     else:

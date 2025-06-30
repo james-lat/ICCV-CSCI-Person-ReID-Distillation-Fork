@@ -28,7 +28,7 @@ def extract_vid_feature(model, dataloader, vid2clip_index, data_length, device=N
             # torch.Size([512])
 
             if cfg.MODEL.CLOTH_ONLY:
-                feat = model(imgs, clothes_ids)
+                feat = model(imgs, clothes_ids * 0)
             else:
                 if cfg.MODEL.MASK_META:
                     meta[:, 5:21] = 0
@@ -41,7 +41,7 @@ def extract_vid_feature(model, dataloader, vid2clip_index, data_length, device=N
                     meta[:, 102:105] = 0
                 if cfg.TEST.TYPE == 'image_only':
                     meta = torch.zeros_like(meta)
-                feat = model(imgs, clothes_ids, meta)
+                feat = model(imgs, clothes_ids * 0, meta)
         
         clip_features.append(feat.cpu())
         clip_pids = torch.cat((clip_pids, pids.cpu()), dim=0)
@@ -99,7 +99,7 @@ def extract_vid_feature_with_index(model, dataloader, vid2clip_index, data_lengt
                     meta[:, 102:105] = 0
                 if cfg.TEST.TYPE == 'image_only':
                     meta = torch.zeros_like(meta)
-                feat = model(imgs, clothes_ids, meta)
+                feat = model(imgs, clothes_ids * 0, meta)
         
         clip_features.append(feat.cpu())
         clip_pids = torch.cat((clip_pids, pids.cpu()), dim=0)

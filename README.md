@@ -11,9 +11,9 @@ While paper reports average of 2 two runs, we have give best performing model we
 | Dataset | COLOR PROFILE | CC (R1) | CC (mAP) | General / SC (R1) | General / SC (mAP) | MODEL Wt. | 
 | -------- | ------- | ------- |  ------- | ------- | ------- | ------- |
 | LTCC | 44 | 49.2 | 25.0 | 80.9 | 47.0 | - 
-| PRCC | 9 | 66.8 | 62.9 | 100.0 | 98.9 | -
+| PRCC | 41 | 66.4 | 60.7 | 100.0 | 98.6 | -
 | MEVID | - | - | - | - | - | -
-| CCVID | - | - | - | - | - | -
+| CCVID | 49 | 91.0 | 90.9 | 100.0 | 100.0 | -
 
 
 
