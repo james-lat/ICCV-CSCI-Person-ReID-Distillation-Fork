@@ -334,28 +334,30 @@ def extract_mevid_vid_feature(logger, model, dataloader, vid2clip_index, data_le
             # torch.Size([512, 3, 224, 224])
             # torch.Size([512])
 
-            # save_image(normalize(rearrange(imgs[:10], "B C N ... -> (B N) C ...")), "temp-2.png")
-            if cfg.MODEL.CLOTH_ONLY:
-                feat = model(imgs, clothes_ids)
-            else:
-                if cfg.MODEL.MASK_META:
-                    meta[:, 5:21] = 0
-                    meta[:, 35:57] = 0
-                    meta[:, 84] = 0
-                    meta[:, 90] = 0
-                    meta[:, 92:96] = 0
-                    meta[:, 97] = 0
-                    meta[:, 100] = 0
-                    meta[:, 102:105] = 0
-                if cfg.TEST.TYPE == 'image_only':
-                    meta = torch.zeros_like(meta)
-                feat = model(imgs, clothes_ids, meta)
-            
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                # save_image(normalize(rearrange(imgs[:10], "B C N ... -> (B N) C ...")), "temp-2.png")
+                if cfg.MODEL.CLOTH_ONLY:
+                    feat = model(imgs, clothes_ids * 0)
+                else:
+                    if cfg.MODEL.MASK_META:
+                        meta[:, 5:21] = 0
+                        meta[:, 35:57] = 0
+                        meta[:, 84] = 0
+                        meta[:, 90] = 0
+                        meta[:, 92:96] = 0
+                        meta[:, 97] = 0
+                        meta[:, 100] = 0
+                        meta[:, 102:105] = 0
+                    if cfg.TEST.TYPE == 'image_only':
+                        meta = torch.zeros_like(meta)
+                    feat = model(imgs, clothes_ids * 0, meta)
+                
             clip_features.append(feat.cpu())
             clip_pids = torch.cat((clip_pids, pids.cpu()), dim=0)
             clip_camids = torch.cat((clip_camids, camids.cpu()), dim=0)
             clip_clothes_ids = torch.cat((clip_clothes_ids, clothes_ids.cpu()), dim=0)
 
+    # dist.barrier()
     clip_features = torch.cat(clip_features, 0)
 
     # Gather samples from different GPUs
@@ -435,12 +437,8 @@ def test_mevid(config, model, queryloader, galleryloader, dataset, device, dump_
     model.eval()
     local_rank = dist.get_rank()
     
-    ################
-    # print(local_rank, len(queryloader), len(galleryloader))
-    # 0 129 615                                                                                                                                                                            
-    # 1 129 615  
-    ################ 
-    # 0 258 1230
+    torch.cuda.synchronize()
+
     
     if dump_w_index:
         qf, q_pids, q_camids, q_clothes_ids, q_index = extract_mevid_vid_feature_with_index(logger, model, queryloader, 
@@ -453,6 +451,12 @@ def test_mevid(config, model, queryloader, galleryloader, dataset, device, dump_
         gf, g_pids, g_camids, g_clothes_ids = extract_mevid_vid_feature(logger, model, galleryloader, 
                                 dataset.gallery_vid2clip_index, len(dataset.recombined_gallery), device, config)
 
+    # dist.barrier()
+    # if local_rank == 0 :
+    #     print(f"2 {local_rank} .... ", qf.shape, gf.shape)  
+    #     print(f"3 {local_rank} ... ", rearrange(qf, "(B F) (C X)-> B F C X", B=int(qf.shape[0] // 79), F=79, C=128, X=8 ).mean(1).mean(1))
+    #     print(f"4 {local_rank} ... ", rearrange(gf, "(B F) (C X)-> B F C X", B=int(gf.shape[0] // 719), F=719, C=128, X=8 ).mean(1).mean(1))
+        
     
     # Gather samples from different GPUs
     torch.cuda.empty_cache()

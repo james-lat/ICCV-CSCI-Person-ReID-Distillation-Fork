@@ -27,22 +27,23 @@ def extract_vid_feature(model, dataloader, vid2clip_index, data_length, device=N
             # torch.Size([512, 3, 224, 224])
             # torch.Size([512])
 
-            if cfg.MODEL.CLOTH_ONLY:
-                feat = model(imgs, clothes_ids * 0)
-            else:
-                if cfg.MODEL.MASK_META:
-                    meta[:, 5:21] = 0
-                    meta[:, 35:57] = 0
-                    meta[:, 84] = 0
-                    meta[:, 90] = 0
-                    meta[:, 92:96] = 0
-                    meta[:, 97] = 0
-                    meta[:, 100] = 0
-                    meta[:, 102:105] = 0
-                if cfg.TEST.TYPE == 'image_only':
-                    meta = torch.zeros_like(meta)
-                feat = model(imgs, clothes_ids * 0, meta)
-        
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                if cfg.MODEL.CLOTH_ONLY:
+                    feat = model(imgs, clothes_ids * 0)
+                else:
+                    if cfg.MODEL.MASK_META:
+                        meta[:, 5:21] = 0
+                        meta[:, 35:57] = 0
+                        meta[:, 84] = 0
+                        meta[:, 90] = 0
+                        meta[:, 92:96] = 0
+                        meta[:, 97] = 0
+                        meta[:, 100] = 0
+                        meta[:, 102:105] = 0
+                    if cfg.TEST.TYPE == 'image_only':
+                        meta = torch.zeros_like(meta)
+                    feat = model(imgs, clothes_ids * 0, meta)
+            
         clip_features.append(feat.cpu())
         clip_pids = torch.cat((clip_pids, pids.cpu()), dim=0)
         clip_camids = torch.cat((clip_camids, camids.cpu()), dim=0)
@@ -191,6 +192,7 @@ def test(config, model, queryloader, galleryloader, dataset, device=None, dump_w
     since = time.time()
     model.eval()
     local_rank = dist.get_rank()
+    torch.cuda.synchronize()
     # Extract features 
 
     if dump_w_index:

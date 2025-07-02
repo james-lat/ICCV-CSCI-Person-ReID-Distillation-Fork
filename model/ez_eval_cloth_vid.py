@@ -772,7 +772,7 @@ class EZ_Eva(Eva):
         if self.e2e_train:logger.exception ("\n Why load pretrained weights when training e2e \n" )
         if  (self.use_temporal_avg or (not load_head)) :
             logger.exception ("\n Skipping HEAD \n" )
-        param_dict = torch.load(trained_path)
+        param_dict = torch.load(trained_path, map_location='cpu')
         for i in param_dict:
             if (self.use_temporal_avg or (not load_head)) and (
                 ("module.head.weight" == i ) or ("module.head.bias" == i ) or ("head.weight" == i ) or ("head.bias" == i ) or ("head_image.weight" == i ) or ("head_image.bias" == i )

@@ -490,7 +490,7 @@ class EZ_Eva_Extra_tokens_Pose(EZ_Eva_Hybrid):
             
     def load_param(self, trained_path, load_head=True):
         super().load_param(trained_path=trained_path, load_head=load_head) 
-        param_dict = torch.load(trained_path)
+        param_dict = torch.load(trained_path, map_location='cpu')
         if "extra_pos_in_temporal" in param_dict:
             if "pos_embed" in param_dict:
                 self.state_dict()['extra_pos_in_temporal'].copy_( param_dict['extra_pos_in_temporal'][:,:1]  )    

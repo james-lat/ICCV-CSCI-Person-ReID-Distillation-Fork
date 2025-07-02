@@ -125,7 +125,7 @@ def set_train_methods(cfg, model, local_rank):
     
     scaler = amp.GradScaler()
     
-    return eval_period, device, epochs, logger, train_writer, rank_writer, mAP_writer, loss_meter, acc_meter, scaler
+    return eval_period, device, epochs, logger, train_writer, rank_writer, mAP_writer, loss_meter, acc_meter, scaler, model
     
 def train_step(cfg, model, train_loader, optimizer, optimizer_center, loss_fn, scaler, loss_meter, acc_meter, scheduler, epoch, DEFAULT_LOADER=default_img_loader, train_writer=None , training_mode="image", **kwargs):
     log_period = cfg.SOLVER.LOG_PERIOD
@@ -259,7 +259,7 @@ def do_train(cfg,
              eval=None, save5=None, TRAIN_step_FN=train_step, training_mode="image", queryloader=None, galleryloader=None, threshold_drop=10, **kwargs):
 
     eval_period, device, epochs, logger, train_writer, rank_writer, \
-        mAP_writer, loss_meter, acc_meter, scaler = set_train_methods(cfg, model, local_rank)
+        mAP_writer, loss_meter, acc_meter, scaler, model = set_train_methods(cfg, model, local_rank)
     
     evaluator_diff, evaluator_general, evaluator_same, evaluator = evaluator_gen(cfg, dataset)
 
@@ -338,7 +338,7 @@ def do_train_w_teachers(cfg,
              teacher_trainloader=None, teacher_dataset=None, training_mode="image", teacher_training_mode="video", queryloader=None, galleryloader=None, threshold_drop=10, **kwargs):
 
     eval_period, device, epochs, logger, train_writer, rank_writer, \
-        mAP_writer, loss_meter, acc_meter, scaler = set_train_methods(cfg, model, local_rank)
+        mAP_writer, loss_meter, acc_meter, scaler, model = set_train_methods(cfg, model, local_rank)
     
     evaluator_diff, evaluator_general, evaluator_same, evaluator = evaluator_gen(cfg, dataset)
 
@@ -372,12 +372,12 @@ def do_train_w_teachers(cfg,
         scheduler.step(epoch)
         if not cfg.TRAIN.DEBUG:
             logger.info("==> Teacher Training .... ")
-            # model.module.student_mode = True
+            model.module.student_mode = True
             model.student_mode = True 
             TRAIN_ext_step_FN(cfg, model, teacher_trainloader, optimizer,  optimizer_center,  loss_fn,  scaler, loss_meter_teacher, acc_meter_teacher, scheduler,   epoch, train_writer=train_writer, training_mode=teacher_training_mode, **kwargs )    
                             # cfg, model, train_loader,        optimizer,  optimizer_center,   loss_fn, scaler, loss_meter,         acc_meter,         scheduler,   epoch, train_writer=train_writer, training_mode=training_mode,         **kwargs )
             model.student_mode = False 
-            # model.module.student_mode = False
+            model.module.student_mode = False
 
         logger.info("==> Student Training .... ")
         idx = TRAIN_step_FN(cfg, model, train_loader, optimizer, optimizer_center, loss_fn, scaler, loss_meter, acc_meter, scheduler,  epoch, train_writer=train_writer, training_mode=training_mode, **kwargs )
