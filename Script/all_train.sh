@@ -1,20 +1,20 @@
 #!/bin/bash
 
-#SBATCH --job-name=M_5
+#SBATCH --job-name=M_8
 #SBATCH --output=ucf_output/slurm-%j.out
 #SBATCH --gres-flags=enforce-binding
 #SBATCH -p gpu
 
-#SBATCH -C gmem24
+#SBATCH -C gmem48
 #SBATCH --gres=gpu:2
 #SBATCH --mem-per-cpu=8G
 #SBATCH -c10
-
-#SBATCH -p gpu --qos=day
+#SBATCH -C gmemT48 --gres=gpu:turing:2
+###############################SBATCH -p gpu --qos=day
 ##############################SBATCH -p gpu --qos=short
-############################SBATCH -C gmem11 --exclude=c1-7
-#############################SBATCH -p gpu --qos=preempt -A preempt 
-##############################SBATCH -C gmemT48 --gres=gpu:turing:2
+
+
+
 
 ##################SBATCH -p gpu -c12 --qos=preempt 
 ################SBATCH -p gpu -c8 --qos=preempt --exclude=c1-2
@@ -79,13 +79,13 @@ COLOR=44
 SEED=1245
 
 
-# #################### PRCC ####################
-# prcc=/home/c3-0/datasets/PRCC/prcc/
-# CONFIG=configs/prcc_eva02_l_cloth.yml
-# DATASET="prcc"
-# ROOT=$prcc
-# COLOR=41
-# SEED=1245
+#################### PRCC ####################
+prcc=/home/c3-0/datasets/PRCC/prcc/
+CONFIG=configs/prcc_eva02_l_cloth.yml
+DATASET="prcc"
+ROOT=$prcc
+COLOR=41
+SEED=1245
 
 
 # # ###############################################################################################
@@ -96,11 +96,11 @@ SEED=1245
 #     OUTPUT_DIR $DATASET"_ONLY_IMG" SOLVER.SEED $SEED >> ucf_output/"$DATASET"_img_nocloth-$SEED.txt    
 
 
-# #### COLOR (VARRY SEEDS)
-CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train.py --config_file $CONFIG DATA.ROOT $ROOT DATA.DATASET $DATASET MODEL.NAME 'eva02_img_extra_token' MODEL.DIST_TRAIN True \
-    TRAIN.COLOR_ADV True DATA.DATASET_FIX 'color_adv' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED \
-    OUTPUT_DIR $DATASET+"_Co-$COLOR"-$SEED >> ucf_output/"$DATASET"-CO-$COLOR-$SEED.txt
+# # #### COLOR (VARRY SEEDS)
+# CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
+#     train.py --config_file $CONFIG DATA.ROOT $ROOT DATA.DATASET $DATASET MODEL.NAME 'eva02_img_extra_token' MODEL.DIST_TRAIN True \
+#     TRAIN.COLOR_ADV True DATA.DATASET_FIX 'color_adv' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED \
+#     OUTPUT_DIR $DATASET+"_Co-$COLOR"-$SEED >> ucf_output/"$DATASET"-CO-$COLOR-$SEED.txt
 
 
 
@@ -116,24 +116,24 @@ SEED=1245
 
 
 
-############################## MEVID ##############################
-mevid=/home/c3-0/datasets/MEVID
-CONFIG=configs/mevid_eva02_l_cloth.yml
-DATASET="mevid"
-ROOT=$mevid
-wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
+# ############################## MEVID ##############################
+# mevid=/home/c3-0/datasets/MEVID
+# CONFIG=configs/mevid_eva02_l_cloth.yml
+# DATASET="mevid"
+# ROOT=$mevid
+# wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
 
 
 # ###### #VANILL IMAGE TRAIN  (need this to train EZ-CLIP)
-# SEED=1244
 # CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
 #     train.py --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
 #     OUTPUT_DIR $DATASET"_ONLY_IMG" SOLVER.SEED $SEED >> ucf_output/"$DATASET"_img_nocloth-$SEED.txt    
 
 # ####### EZ CLIP Baseline (no clothes / colors)
 # CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-#     train.py --resume --config_file $CONFIG_MEVID DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
-#     MODEL.NAME 'ez_eva02_vid' TRAIN.TRAIN_VIDEO True TEST.WEIGHT $wt  >> ucf_output/"$DATASET"_4T_NoAd_e2e_pre.txt
+#     train.py --resume --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
+#     MODEL.NAME 'ez_eva02_vid' TRAIN.TRAIN_VIDEO True TEST.WEIGHT $wt MODEL.MOTION_LOSS True \
+#     OUTPUT_DIR $DATASET-4TNAE2EPML-$SEED SOLVER.SEED $SEED SOLVER.MAX_EPOCHS 100 >> ucf_output/"$DATASET"_4TNAE2EPML-RUN-$SEED-EP100.txt
 
 
 # # ####### EZ CLIP + COLORS 
@@ -143,8 +143,7 @@ wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
 #     TRAIN.DIR_TEACH1 $ROOT TRAIN.TEACH1_MODEL None TRAIN.TEACH1_LOAD_AS_IMG True TRAIN.TEACH_DATASET_FIX 'color_adv' TRAIN.COLOR_ADV True \
 #     MODEL.NAME 'ez_eva02_vid_hybrid_extra' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED OUTPUT_DIR $DATASET-$COLOR-$SEED SOLVER.MAX_EPOCHS 100 SOLVER.LOG_PERIOD 800 >> ucf_output/"$DATASET"_4NAEPM+CO-$COLOR-$SEED-UCF.txt
     
-
-
+    
 
 
 
@@ -154,7 +153,7 @@ wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
 
 
 # cd ~/ICCV-CSCI-Person-ReID/
-# sbatch Script/image_batch.sh
+# sbatch Script/all_train.sh
 
 
 

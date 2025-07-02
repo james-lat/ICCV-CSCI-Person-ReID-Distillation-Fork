@@ -86,30 +86,38 @@ COLOR=48
 SEED=1245
 
 
-# ###### #VANILL IMAGE TRAIN  (need this to train EZ-CLIP)
-# SEED=1244
-# CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-#     train.py --config_file $CONFIG DATA.ROOT $ROOT \
-#     OUTPUT_DIR $DATASET"_ONLY_IMG" SOLVER.SEED $SEED >> ucf_output/"$DATASET"_img_nocloth-$SEED.txt    
+###### #VANILL IMAGE TRAIN  (need this to train EZ-CLIP)
+SEED=1244
+CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
+    train.py --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
+    OUTPUT_DIR $DATASET"_ONLY_IMG" SOLVER.SEED $SEED >> ucf_output/"$DATASET"_img_nocloth-$SEED.txt    
 
 
 # ####### EZ CLIP Baseline (no clothes / colors)
 # #### vid-ez E2E (w/ pretrained) NoAd + Motion LOSS
 # CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-#     train.py --env $ENV --resume --config_file $CONFIG DATA.ROOT $ROOT \
+#     train.py --env $ENV --resume --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
 #     MODEL.NAME 'ez_eva02_vid' TRAIN.TRAIN_VIDEO True TEST.WEIGHT $wt MODEL.MOTION_LOSS True \
 #     OUTPUT_DIR $DATASET-4TNAE2EPML-$SEED SOLVER.SEED $SEED SOLVER.MAX_EPOCHS 100 >> newton_output/"$DATASET"_4TNAE2EPML-RUN-$SEED-EP100.txt
 
 
-####### EZ CLIP + COLORS
-#### vid-ez E2E (w/ pretrained) NoAd + Motion LOSS
-CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train_two_step.py --env $ENV --resume --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
-    TRAIN.TRAIN_VIDEO True MODEL.MOTION_LOSS True TRAIN.TEACH1 $DATASET TEST.WEIGHT $wt TRAIN.HYBRID True \
-    TRAIN.DIR_TEACH1 $ROOT TRAIN.TEACH1_MODEL None TRAIN.TEACH1_LOAD_AS_IMG True TRAIN.TEACH_DATASET_FIX 'color_adv' TRAIN.COLOR_ADV True \
-    MODEL.NAME 'ez_eva02_vid_hybrid_extra' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED OUTPUT_DIR $DATASET-$COLOR-$SEED SOLVER.MAX_EPOCHS 100 SOLVER.LOG_PERIOD 800 >> newton_output/"$DATASET"_4NAEPM+CO-$COLOR-$SEED-Final.txt
+# ####### EZ CLIP + COLORS
+# #### vid-ez E2E (w/ pretrained) NoAd + Motion LOSS
+# CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
+#     train_two_step.py --env $ENV --resume --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
+#     TRAIN.TRAIN_VIDEO True MODEL.MOTION_LOSS True TRAIN.TEACH1 $DATASET TEST.WEIGHT $wt TRAIN.HYBRID True \
+#     TRAIN.DIR_TEACH1 $ROOT TRAIN.TEACH1_MODEL None TRAIN.TEACH1_LOAD_AS_IMG True TRAIN.TEACH_DATASET_FIX 'color_adv' TRAIN.COLOR_ADV True \
+#     MODEL.NAME 'ez_eva02_vid_hybrid_extra' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED OUTPUT_DIR $DATASET-$COLOR-$SEED SOLVER.MAX_EPOCHS 100 SOLVER.LOG_PERIOD 800 >> newton_output/"$DATASET"_4NAEPM+CO-$COLOR-$SEED-Final.txt
     
 
+
+
+    
+    
+    
+    
+    
+    
 
 
 # rsync -a Dump/ccvid-9-1245/ ucf2:~/ICCV-CSCI-Person-ReID/Dump/

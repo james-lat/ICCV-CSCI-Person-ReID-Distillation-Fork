@@ -334,7 +334,7 @@ def extract_mevid_vid_feature(logger, model, dataloader, vid2clip_index, data_le
             # torch.Size([512, 3, 224, 224])
             # torch.Size([512])
 
-            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            with torch.autocast(device_type="cuda", dtype=torch.float16):
                 # save_image(normalize(rearrange(imgs[:10], "B C N ... -> (B N) C ...")), "temp-2.png")
                 if cfg.MODEL.CLOTH_ONLY:
                     feat = model(imgs, clothes_ids * 0)

@@ -27,7 +27,7 @@ def extract_vid_feature(model, dataloader, vid2clip_index, data_length, device=N
             # torch.Size([512, 3, 224, 224])
             # torch.Size([512])
 
-            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            with torch.autocast(device_type="cuda", dtype=torch.float16):
                 if cfg.MODEL.CLOTH_ONLY:
                     feat = model(imgs, clothes_ids * 0)
                 else:

@@ -22,7 +22,7 @@ While paper reports average of 2 two runs, we have give best performing model we
 We pass color as input as color profile integer with `COLOR >= 50` (50 51 52 53 54 55 56) indicating RGB HISTOGRAM and `COLOR < 50` indicate RGB-uv histogram. These profiles vary in hyerparameters, and behind the scenes these numbers are translated in various implementations. 
 
 #### CODE 
-Training code is available in [Image Train](Script/image_batch.sh) and [Video Train](Script/image_batch_newton.sh) and other ablations are available in [Ablations](Script/run.sh). The best performance from RGB-uv color profile is chosen (> averaged, as reported in paper).    
+Training code is available in [Image Train](Script/all_train.sh) and other ablations are available in [Ablations](Script/run.sh). The best performance from RGB-uv color profile is chosen (> averaged, as reported in paper).    
 For Video model, train vanilla image model on video random frames as normal person ReID (no colors) and use those weights in EZ-CLIP to train the final video model.  
 
 
