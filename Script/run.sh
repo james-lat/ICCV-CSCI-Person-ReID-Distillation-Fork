@@ -2,7 +2,6 @@ conda activate bert
 cd ~/ICCV-CSCI-Person-ReID/
 NUM_GPU=1
 PORT=12355
-BATCH_SIZE=40
 RUN_NO=1
 ENV='nccl'
 

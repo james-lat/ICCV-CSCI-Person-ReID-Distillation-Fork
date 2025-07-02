@@ -2,7 +2,6 @@ conda activate bert
 cd ~/ICCV-CSCI-Person-ReID/
 NUM_GPU=1
 PORT=12355
-BATCH_SIZE=40
 RUN_NO=1
 SEED=12345
 
@@ -14,8 +13,8 @@ ROOT=$ltcc
 
 COLOR=44
 WT=logs/LTCC/ltcc+_Co-44-1245/eva02_img_extra_token_best.pth
-# EVA-attribure.train:  CC:  CMC curve, Rank-1  :49.2%  Rank-5  :62.0%  Rank-10 :66.6%  
-# EVA-attribure.train:  CC:  mAP Acc. :25.0%
+# EVA-attribure.train:  CC:  CMC curve, Rank-1  :50.3%  Rank-5  :62.0%  Rank-10 :68.6%  
+# EVA-attribure.train:  CC:  mAP Acc. :25.9%
 # EVA-attribure.train:  General:  CMC curve, Rank-1  :80.9%  Rank-5  :89.0%  Rank-10 :91.3%  
 # EVA-attribure.train:  General:  mAP Acc. :47.0%
 
@@ -36,19 +35,44 @@ WT=logs/PRCC/prcc-9-1245-16/eva02_img_extra_token_best.pth
 
 COLOR=41
 WT=logs/PRCC/prcc+_Co-41-1245/eva02_img_extra_token_best.pth
-# EVA-attribure.train:  CC :  CMC curve, Rank-1  :66.4%  Rank-5  :75.6%  Rank-10 :79.8%  
-# EVA-attribure.train:  CC :  mAP Acc. :60.7%
-# EVA-attribure.train:  SC:  CMC curve, Rank-1  :99.9%  Rank-5  :100.0%  Rank-10 :100.0%  
-# EVA-attribure.train:  SC:  mAP Acc. :98.6%
+# EVA-attribure.train:  CC :  CMC curve, Rank-1  :66.5%  Rank-5  :74.7%  Rank-10 :78.2%  
+# EVA-attribure.train:  CC :  mAP Acc. :62.3%
+# EVA-attribure.train:  SC:  CMC curve, Rank-1  :100.0%  Rank-5  :100.0%  Rank-10 :100.0%  
+# EVA-attribure.train:  SC:  mAP Acc. :99.4%
 
-
-########## IMAGE EVAL ##########
+########## IMAGE CSCI EVAL  ##########
 CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
     train.py --eval --resume --config_file $CONFIG DATA.ROOT $ROOT TEST.WEIGHT $WT SOLVER.SEED $SEED \
     MODEL.NAME 'eva02_img_extra_token' TRAIN.COLOR_PROFILE $COLOR TEST.MODE True 
     
 
 
+
+
+#################### CCVID ####################
+ROOT=/data/priyank/synthetic/CCVID/
+CONFIG=configs/ccvid_eva02_l_cloth.yml
+DATASET="ccvid"
+
+WT=logs/CCVID/CCVID_IMG/eva02_l_cloth_best.pth
+# EVA-attribure: Computing CMC and mAP
+# EVA-attribure: top1:85.7% top5:88.8% top10:89.9% top20:90.8% mAP:79.1%
+# EVA-attribure: Computing CMC and mAP only for clothes-changing
+# EVA-attribure: top1:84.4% top5:87.8% top10:89.0% top20:90.1% mAP:77.4%
+
+
+#################### MEVID ####################
+ROOT=/data/priyank/synthetic/MEVID/
+CONFIG=configs/mevid_eva02_l_cloth.yml
+DATASET="mevid"
+
+WT=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
+
+
+########## IMAGE EVAL (BASELINE NO COLORS) ##########
+CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
+    train.py --eval --resume --config_file $CONFIG DATA.ROOT $ROOT TEST.WEIGHT $WT SOLVER.SEED $SEED \
+    TEST.MODE True 
 
 
 
@@ -73,6 +97,9 @@ ROOT=/data/priyank/synthetic/MEVID/
 CONFIG=configs/mevid_eva02_l_cloth.yml
 DATASET="mevid"
 
+
+
+
 COLOR=39
 WT=logs/MEVID/mevid+_Co-39-1245/ez_eva02_vid_hybrid_extra_best.pth
 # EVA-attribure: Overall Results ---------------------------------------------------
@@ -82,6 +109,8 @@ COLOR=39
 WT=logs/MEVID/mevid_COLOR-1245/ez_eva02_vid_hybrid_extra_7.pth
 # EVA-attribure: top1:70.6% top5:82.6% top10:83.5% top20:87.7% mAP:48.2%
 
+COLOR=2
+WT=Dump/mevid-2-1245/ez_eva02_vid_hybrid_extra_best.pth
 
 
 
