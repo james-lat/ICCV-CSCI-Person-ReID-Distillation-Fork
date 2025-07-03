@@ -108,7 +108,9 @@ class Video_as_Image(ImageDataset):
         img_path, pid, camid, clothes_id,aux_info = self.dataset[index]
         img_path = img_path[len(img_path) // 2]
         img = read_image(img_path)
+        # img.save("temp.png")
         img = self.transform(img)
+        # save_image (img , "temp.png")
         cloth_id_batch = torch.tensor(clothes_id, dtype=torch.int64) 
         if self.return_index:
             return img, pid,camid, clothes_id,cloth_id_batch, np.asarray(aux_info).astype(np.float64), index

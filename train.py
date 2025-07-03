@@ -178,9 +178,9 @@ def add_additional_attributes(cfg, args):
 
     if cfg.DATA.DATASET in vid_set:
         kwargs["training_mode"] = "video" 
-        kwargs['threshold_drop'] = 7    
-        if "mevid" in cfg.DATA.DATASET:
-            kwargs['threshold_drop'] = 5    
+        kwargs['threshold_drop'] = 8    
+        # if "mevid" in cfg.DATA.DATASET:
+        #     kwargs['threshold_drop'] = 5    
     else:
         kwargs["training_mode"] = "image" 
         kwargs['threshold_drop'] = 10 

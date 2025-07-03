@@ -26,8 +26,9 @@ Training code is available in [All-Train](Script/all_train.sh), [Video-Train](Sc
  and other ablations are available in [Ablations](Script/run.sh). The best performance from RGB-uv color profile is chosen (> averaged, as reported in paper).    
 For Video model, **FIRST** train vanilla image model on video random frames as normal person ReID (no colors) and then use those weights in EZ-CLIP to train the final video model.  We have provided the image weights above.
 
-
 Evaluating the pretrained model weights is given in [Test](Script/test.sh)
+
+**NOTE:** Please stick to the provided code, as there are many more things that are implemented as a possible research direction that may not work (buggy code?). The ones in scripts is rigrously tested, and verified. 
 
 
 ## CITE
