@@ -5,6 +5,15 @@ PORT=12355
 RUN_NO=1
 SEED=12345
 
+
+
+
+
+########################################################################################################################
+########## IMAGE EVAL  ##########
+########################################################################################################################
+
+
 #################### LTCC ####################
 ltcc=/data/priyank/synthetic/LTCC/
 CONFIG=configs/ltcc_eva02_l_cloth.yml
@@ -17,7 +26,6 @@ WT=logs/LTCC/ltcc+_Co-44-1245/eva02_img_extra_token_best.pth
 # EVA-attribure.train:  CC:  mAP Acc. :25.9%
 # EVA-attribure.train:  General:  CMC curve, Rank-1  :80.9%  Rank-5  :89.0%  Rank-10 :91.3%  
 # EVA-attribure.train:  General:  mAP Acc. :47.0%
-
 
 
 #################### PRCC ####################
@@ -58,10 +66,9 @@ CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_pe
 
 
 
-
-
-
-
+########################################################################################################################
+########## VIDEO (Image) EVAL  ##########
+########################################################################################################################
 
 #################### CCVID ####################
 ROOT=/data/priyank/synthetic/CCVID/
@@ -73,13 +80,6 @@ WT=logs/CCVID/CCVID_IMG/eva02_l_cloth_best.pth
 # EVA-attribure: top1:88.6% top5:91.1% top10:92.6% top20:93.9% mAP:88.4% 
 # EVA-attribure: Computing CMC and mAP only for clothes-changing
 # EVA-attribure: top1:86.3% top5:90.0% top10:92.2% top20:93.5% mAP:86.6%       
-
-WT=Dump/ccvid_ONLY_IMG/eva02_l_cloth_best.pth
-# EVA-attribure: Computing CMC and mAP
-# EVA-attribure: top1:89.1% top5:92.1% top10:93.6% top20:94.5% mAP:89.5%
-# EVA-attribure: Computing CMC and mAP only for clothes-changing
-# EVA-attribure: top1:86.6% top5:90.6% top10:92.8% top20:94.1% mAP:87.5%
-
 
 
 #################### MEVID ####################
@@ -94,13 +94,6 @@ WT=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
 #  cmc_cc : 18.7% & mAP_cc : 18.0% 
 #  cmc_overall : 74.4% & mAP_overall : 49.9% 
 #  cmc : 74.4% & map : 49.9% 
-
-WT=Dump/mevid_ONLY_IMG/eva02_l_cloth_best.pth
-#  cmc_diff_scale : 58.1% & mAP_diff_scale : 37.5% 
-#  cmc_diff_loc : 55.6% & mAP_diff_loc : 38.3% 
-#  cmc_cc : 16.5% & mAP_cc : 14.4% 
-#  cmc_overall : 72.5% & mAP_overall : 45.0% 
-#  cmc : 72.5% & map : 45.0% 
 
 ########################################
 ########## IMAGE EVAL (BASELINE NO COLORS) ##########
@@ -122,8 +115,10 @@ CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_pe
 
 
 
+########################################################################################################################
+########## VIDEO EZ-CLIP + COLORS EVAL  ##########
+########################################################################################################################
     
-
 #################### CCVID ####################
 ROOT=/data/priyank/synthetic/CCVID/
 CONFIG=configs/ccvid_eva02_l_cloth.yml
@@ -142,17 +137,10 @@ ROOT=/data/priyank/synthetic/MEVID/
 CONFIG=configs/mevid_eva02_l_cloth.yml
 DATASET="mevid"
 
-COLOR=39
-WT=logs/MEVID/mevid+_Co-39-1245/ez_eva02_vid_hybrid_extra_best.pth
+COLOR=17
+WT=logs/MEVID/mevid-17-1244/ez_eva02_vid_hybrid_extra_best.pth
 # EVA-attribure: Overall Results ---------------------------------------------------
-# EVA-attribure: top1:70.3% top5:82.0% top10:84.2% top20:87.3% mAP:46.2%
-
-COLOR=39
-WT=logs/MEVID/mevid_COLOR-1245/ez_eva02_vid_hybrid_extra_7.pth
-# EVA-attribure: top1:70.6% top5:82.6% top10:83.5% top20:87.7% mAP:48.2%
-
-COLOR=2
-WT=Dump/mevid-2-1245/ez_eva02_vid_hybrid_extra_best.pth
+# EVA-attribure: top1:79.7% top5:87.7% top10:89.2% top20:90.8% mAP:56.7%
 
 
 ########################################

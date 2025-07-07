@@ -5,12 +5,12 @@
 #SBATCH --gres-flags=enforce-binding
 #SBATCH -p gpu
 
-#SBATCH -C gmem48
+#SBATCH -C gmem80
 #SBATCH --gres=gpu:2
 #SBATCH --mem-per-cpu=8G
 #SBATCH -c10
 ####SBATCH -C gmemT48 --gres=gpu:turing:2
-###SBATCH -p gpu --qos=day
+####SBATCH -p gpu --qos=day
 ###SBATCH -p gpu --qos=short
 
 
@@ -87,19 +87,19 @@ COLOR=41
 SEED=1245
 
 
-# # ###############################################################################################
-# # ################################ # Img Train ###################################################
-# # VANILL TRAIN (no color no cloth) (VARRY SEEDS)
-# CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-#     train.py --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
-#     OUTPUT_DIR $DATASET"_ONLY_IMG" SOLVER.SEED $SEED >> ucf_output/"$DATASET"_img_nocloth-$SEED.txt    
+# ###############################################################################################
+# ################################ # Img Train ###################################################
+# VANILL TRAIN (no color no cloth) (VARRY SEEDS)
+CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
+    train.py --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
+    OUTPUT_DIR $DATASET"_ONLY_IMG" SOLVER.SEED $SEED >> ucf_output/"$DATASET"_img_nocloth-$SEED.txt    
 
 
-# # #### COLOR (VARRY SEEDS)
-# CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-#     train.py --config_file $CONFIG DATA.ROOT $ROOT DATA.DATASET $DATASET MODEL.NAME 'eva02_img_extra_token' MODEL.DIST_TRAIN True \
-#     TRAIN.COLOR_ADV True DATA.DATASET_FIX 'color_adv' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED \
-#     OUTPUT_DIR $DATASET+"_Co-$COLOR"-$SEED >> ucf_output/"$DATASET"-CO-$COLOR-$SEED.txt
+# #### COLOR (VARRY SEEDS)
+CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
+    train.py --config_file $CONFIG DATA.ROOT $ROOT DATA.DATASET $DATASET MODEL.NAME 'eva02_img_extra_token' MODEL.DIST_TRAIN True \
+    TRAIN.COLOR_ADV True DATA.DATASET_FIX 'color_adv' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED \
+    OUTPUT_DIR $DATASET+"_Co-$COLOR"-$SEED >> ucf_output/"$DATASET"-CO-$COLOR-$SEED.txt
 
 
 
@@ -112,76 +112,38 @@ wt=logs/CCVID/CCVID_IMG/eva02_l_cloth_best.pth
 MAX_EPOCHS=100
 LOGGING=500
 
-# COLOR=49
-# SEED=1245
-# SEED=1244
+COLOR=39
+COLOR=49
+SEED=1244
 
-# COLOR=34
-# SEED=1245
-# SEED=1244
 
-# COLOR=51
-# SEED=1245
-# SEED=1244
 
-# COLOR=29
-# SEED=1245
-# SEED=1244
+############################## MEVID ##############################
+mevid=/home/c3-0/datasets/MEVID
+CONFIG=configs/mevid_eva02_l_cloth.yml
+DATASET="mevid"
+ROOT=$mevid
+wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
+SEED=1245
+MAX_EPOCHS=60
+LOGGING=800
 
-# COLOR=42
-# SEED=1245
-# SEED=1244
-
-# COLOR=44
-# SEED=1245
-# SEED=1244
-
-COLOR=27
+COLOR=17
+SEED=1244
 SEED=1245
 
 
 
+##### #VANILL IMAGE TRAIN  (need this to train EZ-CLIP)
+CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
+    train.py --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
+    OUTPUT_DIR $DATASET"_ONLY_IMG"-$SEED SOLVER.SEED $SEED >> ucf_output/"$DATASET"_img_nocloth-$SEED.txt    
 
-# ############################## MEVID ##############################
-# mevid=/home/c3-0/datasets/MEVID
-# CONFIG=configs/mevid_eva02_l_cloth.yml
-# DATASET="mevid"
-# ROOT=$mevid
-# wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
-# SEED=1245
-# MAX_EPOCHS=60
-# LOGGING=800
-
-# COLOR=44
-# SEED=1245
-
-# COLOR=47
-# SEED=1245
-
-# COLOR=48
-# SEED=1245
-
-# COLOR=38
-# SEED=1245
-
-# COLOR=39
-# SEED=1245
-
-# # COLOR=42
-# # SEED=1245
-
-
-###### #VANILL IMAGE TRAIN  (need this to train EZ-CLIP)
-# SEED=1244
-# CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-#     train.py --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
-#     OUTPUT_DIR $DATASET"_ONLY_IMG"-$SEED SOLVER.SEED $SEED >> ucf_output/"$DATASET"_img_nocloth-$SEED.txt    
-
-# ####### EZ CLIP Baseline (no clothes / colors)
-# CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-#     train.py --resume --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
-#     MODEL.NAME 'ez_eva02_vid' TRAIN.TRAIN_VIDEO True TEST.WEIGHT $wt MODEL.MOTION_LOSS True \
-#     OUTPUT_DIR $DATASET-4TNAE2EPML-$SEED SOLVER.SEED $SEED SOLVER.MAX_EPOCHS $MAX_EPOCHS >> ucf_output/"$DATASET"_4TNAE2EPML-RUN-$SEED-EP100.txt
+####### EZ CLIP Baseline (no clothes / colors)
+CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
+    train.py --resume --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
+    MODEL.NAME 'ez_eva02_vid' TRAIN.TRAIN_VIDEO True TEST.WEIGHT $wt MODEL.MOTION_LOSS True \
+    OUTPUT_DIR $DATASET-4TNAE2EPML-$SEED SOLVER.SEED $SEED SOLVER.MAX_EPOCHS $MAX_EPOCHS >> ucf_output/"$DATASET"_4TNAE2EPML-RUN-$SEED-EP100.txt
 
 
 # ####### EZ CLIP + COLORS 

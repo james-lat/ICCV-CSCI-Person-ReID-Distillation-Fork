@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:2
 #SBATCH --cpus-per-gpu=12
 #SBATCH --gres-flags=enforce-binding
-#SBATCH --job-name=M_6
+#SBATCH --job-name=M_1
 #SBATCH --output=newton_output/slurm-%j.out
 #SBATCH --constraint=gpu80
 ######SBATCH --partition=preemptable --qos preemptable
@@ -68,55 +68,26 @@ DATASET="ccvid"
 ROOT=$ccvid
 MAX_EPOCHS=100
 
-COLOR=1
+COLOR=32
 SEED=1245
 
 
 
-############################## MEVID ##############################
-mevid=/datasets/MEVID-lzo
-# mevid=/data/priyank/synthetic/MEVID/
-CONFIG=configs/mevid_eva02_l_cloth.yml
-DATASET="mevid"
-wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
-DATASET="mevid"
-ROOT=$mevid
-MAX_EPOCHS=60
+# ############################## MEVID ##############################
+# mevid=/datasets/MEVID-lzo
+# # mevid=/data/priyank/synthetic/MEVID/
+# CONFIG=configs/mevid_eva02_l_cloth.yml
+# DATASET="mevid"
+# wt=logs/MEVID/MEVID_IMG2/eva02_l_cloth_best.pth
+# DATASET="mevid"
+# ROOT=$mevid
+# MAX_EPOCHS=60
 
-COLOR=2
-SEED=1245
-
-# # COLOR=35
-# # SEED=1245
-
-# # COLOR=38
-# # SEED=1245
-
-# COLOR=39
-# SEED=1245
+# COLOR=17
 # SEED=1244
 
-# COLOR=42
-# SEED=1245
 
-# COLOR=44
-# SEED=1245
 
-# COLOR=47
-# SEED=1245
-
-# COLOR=48
-# SEED=1245
-
-# COLOR=50
-# SEED=1245
-# SEED=1244
-
-# COLOR=51
-# SEED=1245
-
-# COLOR=56
-# SEED=1245
 
 # ###### #VANILL IMAGE TRAIN  (need this to train EZ-CLIP)
 # CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
@@ -124,21 +95,21 @@ SEED=1245
 #     OUTPUT_DIR $DATASET"_ONLY_IMG" SOLVER.SEED $SEED >> ucf_output/"$DATASET"_img_nocloth-$SEED.txt    
 
 
-# ####### EZ CLIP Baseline (no clothes / colors)
-# #### vid-ez E2E (w/ pretrained) NoAd + Motion LOSS
-# CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-#     train.py --env $ENV --resume --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
-#     MODEL.NAME 'ez_eva02_vid' TRAIN.TRAIN_VIDEO True TEST.WEIGHT $wt MODEL.MOTION_LOSS True \
-#     OUTPUT_DIR $DATASET-4TNAE2EPML-$SEED SOLVER.SEED $SEED SOLVER.MAX_EPOCHS 100 >> newton_output/"$DATASET"_4TNAE2EPML-RUN-$SEED-EP100.txt
-
-
-####### EZ CLIP + COLORS
+####### EZ CLIP Baseline (no clothes / colors)
 #### vid-ez E2E (w/ pretrained) NoAd + Motion LOSS
 CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
-    train_two_step.py --env $ENV --resume --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
-    TRAIN.TRAIN_VIDEO True MODEL.MOTION_LOSS True TRAIN.TEACH1 $DATASET TEST.WEIGHT $wt TRAIN.HYBRID True \
-    TRAIN.DIR_TEACH1 $ROOT TRAIN.TEACH1_MODEL None TRAIN.TEACH1_LOAD_AS_IMG True TRAIN.TEACH_DATASET_FIX 'color_adv' TRAIN.COLOR_ADV True \
-    MODEL.NAME 'ez_eva02_vid_hybrid_extra' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED OUTPUT_DIR $DATASET-$COLOR-$SEED SOLVER.MAX_EPOCHS $MAX_EPOCHS SOLVER.LOG_PERIOD 800 >> newton_output/"$DATASET"_4NAEPM+CO-$COLOR-$SEED-Final.txt
+    train.py --env $ENV --resume --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
+    MODEL.NAME 'ez_eva02_vid' TRAIN.TRAIN_VIDEO True TEST.WEIGHT $wt MODEL.MOTION_LOSS True \
+    OUTPUT_DIR $DATASET-4TNAE2EPML-$SEED SOLVER.SEED $SEED SOLVER.MAX_EPOCHS 100 >> newton_output/"$DATASET"_4TNAE2EPML-RUN-$SEED-EP100.txt
+
+
+# ####### EZ CLIP + COLORS
+# #### vid-ez E2E (w/ pretrained) NoAd + Motion LOSS
+# CUDA_VISIBLE_DEVICES=0,1 python -W ignore -m torch.distributed.launch --nproc_per_node=$NUM_GPU --master_port $PORT \
+#     train_two_step.py --env $ENV --resume --config_file $CONFIG DATA.ROOT $ROOT MODEL.DIST_TRAIN True \
+#     TRAIN.TRAIN_VIDEO True MODEL.MOTION_LOSS True TRAIN.TEACH1 $DATASET TEST.WEIGHT $wt TRAIN.HYBRID True \
+#     TRAIN.DIR_TEACH1 $ROOT TRAIN.TEACH1_MODEL None TRAIN.TEACH1_LOAD_AS_IMG True TRAIN.TEACH_DATASET_FIX 'color_adv' TRAIN.COLOR_ADV True \
+#     MODEL.NAME 'ez_eva02_vid_hybrid_extra' TRAIN.COLOR_PROFILE $COLOR SOLVER.SEED $SEED OUTPUT_DIR $DATASET-$COLOR-$SEED SOLVER.MAX_EPOCHS $MAX_EPOCHS SOLVER.LOG_PERIOD 800 >> newton_output/"$DATASET"_4NAEPM+CO-$COLOR-$SEED-Final.txt
     
 
 

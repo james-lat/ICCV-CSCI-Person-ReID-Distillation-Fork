@@ -193,6 +193,9 @@ class Video_as_Image_fixes(Video_as_Image):
         if sigma == True:
             self.histblock = RGBuvHistBlock(insz=224, h=dim,  intensity_scale=False,  method='inverse-quadratic', device='cpu', sigma=0.001)
             print(f"RGBuvHistBlock(insz=224, h={dim},  intensity_scale=False,  method='inverse-quadratic', device='cpu', sigma=0.001)")
+        elif color_profile in [50, 51, 52, 53, 54, 55, 56, 57]:
+            self.histblock = None 
+            print(f"RGB Histogram h={dim})")
         else:
             self.histblock = RGBuvHistBlock(insz=224, h=dim,  intensity_scale=False,  method='inverse-quadratic', device='cpu')
             print(f"RGBuvHistBlock(insz=224, h={dim},  intensity_scale=False,  method='inverse-quadratic', device='cpu')")

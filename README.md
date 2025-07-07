@@ -12,10 +12,10 @@ While paper reports average of 2 two runs, we have give best performing model we
 | -------- | ------- | ------- |  ------- | ------- | ------- | ------- |
 | LTCC | 44 | 50.3 | 25.9 | 85.2 | 49.6 | [ckpt](https://github.com/ppriyank/ICCV-CSCI-Person-ReID/releases/download/untagged-48f268abb8ed6a10fba1/CSCI_LTCC.zip) 
 | PRCC | 41 | 66.5 | 62.3 | 100.0 | 99.4 | [ckpt-1](https://github.com/ppriyank/ICCV-CSCI-Person-ReID/releases/download/untagged-48f268abb8ed6a10fba1/CSCI_PRCC.zip) & [ckpt-2](https://github.com/ppriyank/ICCV-CSCI-Person-ReID/releases/download/untagged-48f268abb8ed6a10fba1/CSCI_PRCC_2.zip)
-| MEVID | - | - | - | - | - | [image-ckpt](https://github.com/ppriyank/ICCV-CSCI-Person-ReID/releases/download/untagged-1dbca424a1a3b1374875/CSCI_MEVID_IMG.zip) & [video-ckpt]()
-| CCVID | 49 | 91.0 | 90.9 | 100.0 | 100.0 | [image-ckpt](https://github.com/ppriyank/ICCV-CSCI-Person-ReID/releases/download/untagged-1dbca424a1a3b1374875/CSCI_CCVID_IMG.zip) & [video-ckpt]()
-
-
+| CCVID | 49 | 91.0 | 90.9 | 100.0 | 100.0 | [image-ckpt](https://github.com/ppriyank/ICCV-CSCI-Person-ReID/releases/download/untagged-1dbca424a1a3b1374875/CSCI_CCVID_IMG.zip) & [video-ckpt]() 
+| _____ | _____ | _____ | _____ | _____ | _____ | _____  
+| Dataset | COLOR PROFILE | Overall (R1) | Overall (R5) | Overall (R10) | Overall (mAP) | MODEL Wt. | 
+| MEVID | 17 | 79.7 | 87.7 | 89.2 | 56.7 | [image-ckpt](https://github.com/ppriyank/ICCV-CSCI-Person-ReID/releases/download/untagged-1dbca424a1a3b1374875/CSCI_MEVID_IMG.zip) & [video-ckpt]()
 
 ## How to run 
 
@@ -30,6 +30,7 @@ Evaluating the pretrained model weights is given in [Test](Script/test.sh)
 
 **NOTE:** Please stick to the provided code, as there are many more things that are implemented as a possible research direction that may not work (buggy code?). The ones in scripts is rigrously tested, and verified. 
 
+**IMPROVE ACCURACY** : If you have more memory than 48 GB, train with higher batch size to get even higher accuracy. Model has triplet loss which will improve as you increase the batch size. 
 
 ## CITE
 
