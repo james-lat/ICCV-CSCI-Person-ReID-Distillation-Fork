@@ -75,7 +75,29 @@ Colors Code:
   year={2019}
 }
 ```
-
+Idea of predicting attributes (to disenagle) [RLQ](https://github.com/ppriyank/RLQ-CGAL-UBD/blob/main/README.md) :
+```bibtex
+@inproceedings{pathak2025coarse,
+  title={Coarse Attribute Prediction with Task Agnostic Distillation for Real World Clothes Changing ReID},
+  author={Pathak, Priyank and Rawat, Yogesh S},
+  booktitle ={36th British Machine Vision Conference 2025, {BMVC} 2025, Sheffield, UK, November 24-27, 2025},
+  year={2025},
+  publisher={{BMVA} Press},
+}
+```
+Video ReID EZ-CLIP:
+```bibtex
+@article{
+ahmad2025tl,
+title={T2L: Efficient Zero-Shot Action Recognition with Temporal Token Learning},
+author={Shahzad Ahmad and Sukalpa Chanda and Yogesh S Rawat},
+journal={Transactions on Machine Learning Research},
+issn={2835-8856},
+year={2025},
+url={https://openreview.net/forum?id=WvgoxpGpuU},
+note={}
+}
+```
 
 
 ## Acknowledgement
