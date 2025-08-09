@@ -54,7 +54,7 @@ Evaluating the pretrained model weights is given in [Test](Script/test.sh)
 
 ## CITE 🥹
 
-Our work: 
+This work : "Colors See Colors Ignore" : 
 ```bibtex
 @InProceedings{Pathak_2025_ICCV,
   author    = {Pathak, Priyank and  Rawat, Yogesh S},
