@@ -80,4 +80,4 @@ Colors Code:
 
 ## Acknowledgement
 
-Codebase from [MADE-ReID](https://github.com/moon-wh/MADE) 
+Code built on [MADE-ReID](https://github.com/moon-wh/MADE) 
