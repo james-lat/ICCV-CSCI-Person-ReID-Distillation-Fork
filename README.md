@@ -77,6 +77,7 @@ Colors Code:
 ```
 
 
-## CREDITS 
 
-- Code taken from [MADE-ReID](https://github.com/moon-wh/MADE) 
+## Acknowledgement
+
+Codebase from [MADE-ReID](https://github.com/moon-wh/MADE) 
