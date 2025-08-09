@@ -2,11 +2,12 @@
 
 # Colors See Colors Ignore: Clothes Changing ReID with Color Disentanglement (ICCV-25 🥳)<br> [Project Page](https://ucf-crcv.github.io/ReID/CSCI/) | [Paper]() | [Arxiv](https://arxiv.org/pdf/2507.07230) | | [More ReID](https://ucf-crcv.github.io/ReID/) 
 </div>
-	
+
+<!--
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/colors-see-colors-ignore-clothes-changing/person-re-identification-on-ccvid)](https://paperswithcode.com/sota/person-re-identification-on-ccvid?p=colors-see-colors-ignore-clothes-changing)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/colors-see-colors-ignore-clothes-changing/person-re-identification-on-ltcc)](https://paperswithcode.com/sota/person-re-identification-on-ltcc?p=colors-see-colors-ignore-clothes-changing)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/colors-see-colors-ignore-clothes-changing/person-re-identification-on-prcc)](https://paperswithcode.com/sota/person-re-identification-on-prcc?p=colors-see-colors-ignore-clothes-changing)
-
+-->
 
 ## Highlights 🤯 
 
