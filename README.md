@@ -87,8 +87,7 @@ Idea of predicting attributes (to disenagle) [RLQ](https://github.com/ppriyank/R
 ```
 Video ReID EZ-CLIP:
 ```bibtex
-@article{
-ahmad2025tl,
+@article{ahmad2025tl,
 title={T2L: Efficient Zero-Shot Action Recognition with Temporal Token Learning},
 author={Shahzad Ahmad and Sukalpa Chanda and Yogesh S Rawat},
 journal={Transactions on Machine Learning Research},
