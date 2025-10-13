@@ -1,6 +1,6 @@
 <div align="center">
 
-# Colors See Colors Ignore: Clothes Changing ReID with Color Disentanglement (ICCV-25 🥳)<br> [Project Page](https://ucf-crcv.github.io/ReID/CSCI/) | [Paper]() | [Arxiv](https://arxiv.org/pdf/2507.07230) | | [More ReID](https://ucf-crcv.github.io/ReID/) 
+# Colors See Colors Ignore: Clothes Changing ReID with Color Disentanglement (ICCV-25 🥳)<br> [Project Page](https://ucf-crcv.github.io/ReID/CSCI/) | [Paper](https://iccv.thecvf.com/virtual/2025/poster/2481) | [Arxiv](https://arxiv.org/pdf/2507.07230) | [Video](https://www.youtube.com/watch?v=tWMQR6tEcww&t=97s) | | [More ReID](https://ucf-crcv.github.io/ReID/)  
 </div>
 
 <!--
