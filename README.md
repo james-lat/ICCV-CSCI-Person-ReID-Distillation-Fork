@@ -1,6 +1,6 @@
 <div align="center">
 
-# Colors See Colors Ignore: Clothes Changing ReID with Color Disentanglement (ICCV-25 🥳)<br> [Project Page](https://ucf-crcv.github.io/ReID/CSCI/) | [Paper](https://iccv.thecvf.com/virtual/2025/poster/2481) | [Arxiv](https://arxiv.org/pdf/2507.07230) | [Video](https://www.youtube.com/watch?v=tWMQR6tEcww&t=97s) | | [More ReID](https://ucf-crcv.github.io/ReID/)  
+# Colors See Colors Ignore: Clothes Changing ReID with Color Disentanglement (ICCV-25 🥳)<br> [Publication]([https://ucf-crcv.github.io/ReID/CSCI/](https://openaccess.thecvf.com/content/ICCV2025/html/Pathak_Colors_See_Colors_Ignore_Clothes_Changing_ReID_with_Color_Disentanglement_ICCV_2025_paper.html)) [Project Page](https://ucf-crcv.github.io/ReID/CSCI/) | [Paper](https://iccv.thecvf.com/virtual/2025/poster/2481) | [Arxiv](https://arxiv.org/pdf/2507.07230) | [Video](https://www.youtube.com/watch?v=tWMQR6tEcww&t=97s) | | [More ReID](https://ucf-crcv.github.io/ReID/)  
 </div>
 
 <!--
@@ -57,11 +57,12 @@ Evaluating the pretrained model weights is given in [Test](Script/test.sh)
 This work : "Colors See Colors Ignore" : 
 ```bibtex
 @InProceedings{Pathak_2025_ICCV,
-  author    = {Pathak, Priyank and  Rawat, Yogesh S},
-  title     = {Colors See Colors Ignore: Clothes Changing ReID with Color Disentanglement},
-  booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
-  month     = {October},
-  year      = {2025},
+    author    = {Pathak, Priyank and Rawat, Yogesh S.},
+    title     = {Colors See Colors Ignore: Clothes Changing ReID with Color Disentanglement},
+    booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+    month     = {October},
+    year      = {2025},
+    pages     = {16797-16807}
 }
 ```
 
