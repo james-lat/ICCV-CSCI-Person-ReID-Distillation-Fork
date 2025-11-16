@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import torch.distributed as dist
 import torch
 from utils.meter import AverageMeter
 from utils.metrics import R1_mAP_eval,R1_mAP_eval_LTCC, R1_mAP_eval_LaST
@@ -16,6 +17,13 @@ from collections import defaultdict
 import pickle
 import sys 
 from torchvision.utils import save_image 
+import torch.nn as nn
+# from model.MHSA import Mlp
+#Timm pr Function
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from timm.layers import Mlp
 
 def default_img_loader(cfg, data, ):
     text = None
@@ -321,6 +329,247 @@ def do_train(cfg,
     if dist.get_rank() == 0:
         torch.save(model.state_dict(), os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + '_last.pth'))
   
+def train_step_distillation(
+    cfg, model, train_loader, optimizer, optimizer_center, loss_fn, scaler,
+    loss_meter, acc_meter, scheduler, epoch,
+    DEFAULT_LOADER=default_img_loader,
+    train_writer=None, training_mode="image", **kwargs
+):
+    log_period = cfg.SOLVER.LOG_PERIOD
+    logger = logging.getLogger("EVA-attribure.train")
+
+    teacher = kwargs.get("teacher_model", None)
+    mse     = kwargs.get("mse", None)
+
+    KD_TARGET = float(getattr(cfg.TRAIN, "KD_WEIGHT", 0.5))
+    KD_WARMUP_EPOCHS = int(getattr(cfg.TRAIN, "KD_WARMUP_EPOCHS", 0))
+
+    model.train()
+    for idx, data in enumerate(train_loader):
+        samples, targets, clothes, meta, camids, text = DEFAULT_LOADER(cfg, data)
+
+        optimizer.zero_grad()
+        optimizer_center.zero_grad()
+        kd_loss = 0.0  
+
+        # -------------------- Forward (student, PR always returns 3) ----------------
+        with amp.autocast(enabled=True):
+            if cfg.MODEL.ADD_META:
+                if cfg.MODEL.CLOTH_ONLY:
+                    out = model(samples, clothes)
+                else:
+                    out = model(samples, clothes, meta)
+            else:
+                out = model(samples)
+
+        # expect (score, feat_768, student_1024)
+        score, feat_768, student_1024 = out
+
+        # -------------------- Main loss (ColorReID / ReID) -----------------
+        with amp.autocast(enabled=True):
+            main_loss = loss_fn(score, feat_768, targets, camids, training_mode=training_mode)
+
+        if cfg.TENSORBOARD and train_writer is not None:
+            train_writer.add_scalar("loss", float(main_loss.item()), epoch)
+
+        if isinstance(score, list):
+            acc = (score[0].max(1)[1] == targets).float().mean()
+        elif score is not None:
+            acc = (score.max(1)[1] == targets).float().mean()
+        else:
+            logger.info("Yes this is firing")
+            acc = torch.tensor(0.0, device=feat_768.device)
+
+        # -------------------- KD loss (EVA_B 768 -> 1024 vs EVA_L 1024) ---------------
+        if (teacher is not None) and (mse is not None) and (student_1024 is not None):
+            teacher_ref = teacher.module if hasattr(teacher, "module") else teacher
+            teacher_ref.eval()
+
+            with torch.no_grad():
+                if getattr(cfg.TRAIN, "TEACH1_LOAD_AS_IMG", False):
+                    tout = teacher_ref(samples)
+                else:
+                    if cfg.MODEL.ADD_META:
+                        if cfg.MODEL.CLOTH_ONLY:
+                            tout = teacher_ref(samples, clothes)
+                        else:
+                            tout = teacher_ref(samples, clothes, meta)
+                    else:
+                        tout = teacher_ref(samples, clothes)
+
+                # pick teacher feature
+                if isinstance(tout, (list, tuple)):
+                    teacher_1024 = tout[0].float()
+                else:
+                    teacher_1024 = tout.float()
+
+            # one-time debug to sanity-check shapes
+            if epoch == 0 and idx == 0:
+                parts = []
+                if isinstance(tout, (list, tuple)):
+                    for i, x in enumerate(tout):
+                        if torch.is_tensor(x):
+                            parts.append(f"part {i}: shape={tuple(x.shape)}, dtype={x.dtype}")
+                        else:
+                            parts.append(f"part {i}: type={type(x)}")
+                else:
+                    parts.append(f"single: shape={tuple(tout.shape)}, dtype={tout.dtype}")
+                logger.info("[KD TEACHER OUT] " + " | ".join(parts))
+
+            # KD in fp32, with warmup weight
+            with torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=False):
+                s_raw = student_1024.float()
+                t_raw = teacher_1024.to(device=s_raw.device, dtype=s_raw.dtype)
+
+                s_hat = F.normalize(s_raw, p=2, dim=1, eps=1e-6)
+                t_hat = F.normalize(t_raw, p=2, dim=1, eps=1e-6)
+
+                kd_raw   = mse(s_hat, t_hat)
+                cur_kd_w = KD_TARGET * min(1.0, (epoch + 1) / max(1, KD_WARMUP_EPOCHS))
+                kd_loss  = cur_kd_w * kd_raw
+
+            if cfg.TENSORBOARD and train_writer is not None:
+                train_writer.add_scalar("loss_kd", float(kd_loss.item()), epoch)
+
+        # -------------------- Backward & optimizer step -------------------
+        total_loss = main_loss + (kd_loss if isinstance(kd_loss, torch.Tensor) else 0.0)
+
+        if idx == 500:
+            ml = float(main_loss.item())
+            kl = float(kd_loss.item() if isinstance(kd_loss, torch.Tensor) else 0.0)
+            logger.info(
+                f"[DEBUG KD] epoch={epoch} main_loss={ml:.4f} kd_loss={kl:.4f} KD_TARGET={KD_TARGET}"
+            )
+
+        scaler.scale(total_loss).backward()
+        scaler.step(optimizer)
+
+        if "center" in cfg.MODEL.METRIC_LOSS_TYPE:
+            for param in center_criterion.parameters():
+                param.grad.data *= (1.0 / cfg.SOLVER.CENTER_LOSS_WEIGHT)
+            scaler.step(optimizer_center)
+
+        scaler.update()
+
+        loss_meter.update(main_loss.item(), samples.shape[0])
+        acc_meter.update(acc, 1)
+
+        torch.cuda.synchronize()
+        if (idx + 1) % log_period == 0:
+            logger.info(
+                "Epoch[{}] Iteration[{}/{}] Loss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}".format(
+                    epoch,
+                    (idx + 1),
+                    len(train_loader),
+                    loss_meter.avg,
+                    acc_meter.avg,
+                    scheduler._get_lr(epoch)[0],
+                )
+            )
+    return idx
+
+def do_train_w_teachers_distillation(cfg,
+             model,
+             center_criterion,
+             train_loader,
+             optimizer,
+             optimizer_center,
+             scheduler,
+             loss_fn,
+             local_rank,
+             dataset,
+             val_loader = None,
+             val_loader_same = None,
+             eval=None, save5=None, TRAIN_step_FN=train_step_distillation, TRAIN_ext_step_FN=train_step_distillation,
+             teacher_trainloader=None, teacher_dataset=None, training_mode="image", teacher_training_mode="video", queryloader=None, galleryloader=None, threshold_drop=10, **kwargs):
+
+    eval_period, device, epochs, logger, train_writer, rank_writer, \
+        mAP_writer, loss_meter, acc_meter, scaler, model = set_train_methods(cfg, model, local_rank)
+    
+    evaluator_diff, evaluator_general, evaluator_same, evaluator = evaluator_gen(cfg, dataset)
+    print("BEFORE")
+    teacher_model = kwargs.get("teacher_model", None)
+    logger.info("BEFORE BEFORE BEFORE:")
+    if teacher_model is not None and val_loader is not None:
+        logger.info("==> Teacher pre-eval (before student training)")
+        # freeze & eval
+        for p in teacher_model.parameters():
+            p.requires_grad = False
+        teacher_model.eval()
+
+        teacher_ref = teacher_model.module if hasattr(teacher_model, "module") else teacher_model
+
+        try:
+            rank1, mAP, _, _ = evaluate_fn(
+                cfg, teacher_ref, val_loader, logger,
+                evaluator_diff, evaluator_same, val_loader_same,
+                device, epoch=-1,
+                rank_writer=None, mAP_writer=None,
+                dataset=dataset, eval_mode=cfg.TEST.MODE,
+                evaluator=evaluator, dump=False,
+                evaluator_general=evaluator_general,
+                queryloader=queryloader, galleryloader=galleryloader
+            )
+            logger.info(f"==> TEACHER baseline: Rank-1 {rank1:.1%}, mAP {mAP:.1%}")
+        except Exception as e:
+            logger.warning(f"[teacher pre-eval] skipped due to error: {e}")
+    else:
+        logger.info('ELSE')
+
+    loss_meter_teacher = AverageMeter()
+    acc_meter_teacher = AverageMeter()
+    best_rank1 = -np.inf
+    best_map = -np.inf
+    best_epoch = 0
+    mAP = 0 
+    best_map_dict = defaultdict(int)
+    best_rank1_dict = defaultdict(int)
+    start_train_time = time.time()
+    
+    if eval:
+        rank1, mAP, _, _ =  evaluate_fn(cfg, model, val_loader, logger, evaluator_diff, evaluator_same, val_loader_same, device, -1, rank_writer, mAP_writer, dataset, eval_mode=cfg.TEST.MODE, evaluator=evaluator, dump=True, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader)    
+        logger.info("==> EVAL: Rank-1 {:.1%}, Map {:.1%} achieved".format(rank1, mAP))
+        return 
+    idx =0            
+    DEFAULT_LOADER=default_img_loader
+    logger.info('start training')
+    logger.info("Train Start !!")
+    
+    for epoch in range(cfg.TRAIN.START_EPOCH, epochs + 1):
+        start_time = time.time()
+        loss_meter.reset()
+        loss_meter_teacher.reset()
+
+        acc_meter.reset()
+        acc_meter_teacher.reset()
+
+        scheduler.step(epoch)
+
+        logger.info("==> Student Training .... ")
+        idx = TRAIN_step_FN(cfg, model, train_loader, optimizer, optimizer_center, loss_fn, scaler, loss_meter, acc_meter, scheduler,  epoch, train_writer=train_writer, training_mode=training_mode, **kwargs )
+        end_time = time.time()
+        time_per_batch = (end_time - start_time) / (idx + 1)
+
+        if epoch % eval_period == 0:
+            best_map, best_rank1, potential_best_epoch, best_rank1_dict, best_map_dict = eval_step(cfg, model, val_loader, evaluator_diff, evaluator_same, val_loader_same, device, epoch, rank_writer, mAP_writer, dataset,
+            best_rank1_dict, best_map_dict, best_rank1, best_map, evaluator=evaluator, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader, threshold_drop=threshold_drop)
+            best_epoch = max(best_epoch, potential_best_epoch)
+        
+        if save5 and epoch % 5 == 0 and dist.get_rank() == 0:
+            torch.save(model.state_dict(), os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + f'_{epoch}.pth'))
+
+    total_time = time.time() - start_train_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    logger.info('Training time {}'.format(total_time_str))
+    logger.info("==> Best Rank-1 {:.1%}, Best Map {:.1%} achieved at epoch {}".format(best_rank1, best_map, best_epoch))
+    if 'mevid' in cfg.DATA.DATASET :
+        st = "\n"
+        for k1, k2 in zip(best_rank1_dict, best_map_dict): st += f" {k1} : {best_rank1_dict[k1]:.1%} & {k2} : {best_map_dict[k2]:.1%} \n"
+        logger.info(f"==> {st}")
+                
+    if dist.get_rank() == 0:
+        torch.save(model.state_dict(), os.path.join(cfg.OUTPUT_DIR, cfg.MODEL.NAME + '_last.pth'))
+
 
 def do_train_w_teachers(cfg,
              model,
@@ -380,7 +629,7 @@ def do_train_w_teachers(cfg,
             model.module.student_mode = False
 
         logger.info("==> Student Training .... ")
-        idx = TRAIN_step_FN(cfg, model, train_loader, optimizer, optimizer_center, loss_fn, scaler, loss_meter, acc_meter, scheduler,  epoch, train_writer=train_writer, training_mode=training_mode, **kwargs )
+        idx = train(cfg, model, train_loader, optimizer, optimizer_center, loss_fn, scaler, loss_meter, acc_meter, scheduler,  epoch, train_writer=train_writer, training_mode=training_mode, **kwargs )
         end_time = time.time()
         time_per_batch = (end_time - start_time) / (idx + 1)
 
@@ -453,16 +702,19 @@ def do_inference(cfg,
     else:
         test(cfg, model, evaluator, val_loader, logger, device, test=True)
 
-def test(cfg, model, evaluator, val_loader, logger, device, epoch=None, rank_writer=None, mAP_writer=None,test=False,cc=False, prefix=None, dump=None):
+def test(cfg, model, evaluator, val_loader, logger, device, epoch=None,
+         rank_writer=None, mAP_writer=None, test=False, cc=False,
+         prefix=None, dump=None):
+
     for n_iter, (imgs, pids, camids, clothes_id, clothes_ids, meta) in enumerate(val_loader):
         with torch.no_grad():
             imgs = imgs.to(device)
-            # save_image (normalize(imgs), "temp.png")
             meta = meta.to(device)
             clothes_ids = clothes_ids.to(device)
             meta = meta.to(torch.float32)
+
             if cfg.MODEL.CLOTH_ONLY:
-                feat = model(imgs, clothes_ids)
+                raw_out = model(imgs, clothes_ids)
             else:
                 if cfg.MODEL.MASK_META:
                     meta[:, 5:21] = 0
@@ -475,21 +727,36 @@ def test(cfg, model, evaluator, val_loader, logger, device, epoch=None, rank_wri
                     meta[:, 102:105] = 0
                 if cfg.TEST.TYPE == 'image_only':
                     meta = torch.zeros_like(meta)
-                feat = model(imgs, clothes_ids, meta)
+                raw_out = model(imgs, clothes_ids, meta)
+
+            feat = raw_out
+            if isinstance(raw_out, (list, tuple)):
+                if len(raw_out) == 3 and torch.is_tensor(raw_out[1]):
+                    score, feat_768, student_1024 = raw_out
+                    feat = feat_768
+                elif len(raw_out) >= 2 and torch.is_tensor(raw_out[1]):
+                    score, feat_768 = raw_out[0], raw_out[1]
+                    feat = feat_768
+                else:
+                    tensor_feats = [x for x in raw_out if torch.is_tensor(x)]
+                    assert tensor_feats, f"test(): raw_out has no tensor element: {type(raw_out)}"
+                    feat = tensor_feats[0]
+
             if cc:
                 evaluator.update((feat, pids, camids, clothes_id))
             else:
                 evaluator.update((feat, pids, camids))
+
     cmc, mAP, _, _, _, _, _ = evaluator.compute()
-    
+
     if not prefix:
-        prefix = " CC: " if cc else  " SC: "
+        prefix = " CC: " if cc else " SC: "
     string = "{} CMC curve, ".format(prefix)
     for r in [1, 5, 10]:
-        string+= "Rank-{:<3}:{:.1%}  ".format(r, cmc[r - 1])
+        string += "Rank-{:<3}:{:.1%}  ".format(r, cmc[r - 1])
     logger.info(string)
-    logger.info("{} mAP Acc. :{:.1%}".format(prefix,  mAP ))
-    if test :
+    logger.info("{} mAP Acc. :{:.1%}".format(prefix, mAP))
+    if test:
         torch.cuda.empty_cache()
         return
     logger.info("Validation Results - Epoch: {}".format(epoch))

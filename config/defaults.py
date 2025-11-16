@@ -244,3 +244,9 @@ _C.TRAIN_DUMP = None
 _C.GRAD_CAM = None
 _C.ANALYSIS_STATS = None
 _C.AUX_DUMP = None
+_C.TEST.CONCAT_COLORS= None 
+# ---------------------------------------------------------------------------- #
+# KD Knobs 
+# ---------------------------------------------------------------------------- #
+_C.TRAIN.KD_WEIGHT = 0.5
+_C.TRAIN.KD_WARMUP_EPOCHS = 0

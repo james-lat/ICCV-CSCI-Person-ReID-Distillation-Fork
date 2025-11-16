@@ -233,3 +233,7 @@ ENV/
 *.jpg
 
 *Alt/*
+# --- local weights ---
+weights/*.pth
+# --- logs ---
+logs/
