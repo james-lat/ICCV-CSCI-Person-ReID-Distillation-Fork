@@ -2,7 +2,6 @@ import logging
 import os
 import time
 import torch.distributed as dist
-import torch
 from utils.meter import AverageMeter
 from utils.metrics import R1_mAP_eval,R1_mAP_eval_LTCC, R1_mAP_eval_LaST
 from torch.cuda import amp
@@ -16,6 +15,7 @@ from processor.train_fn import *
 from collections import defaultdict
 import pickle
 import sys 
+from model.MHSA import Mlp
 from torchvision.utils import save_image 
 import torch.nn as nn
 # from model.MHSA import Mlp
@@ -24,6 +24,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from timm.layers import Mlp
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 def default_img_loader(cfg, data, ):
     text = None
@@ -51,73 +52,229 @@ def default_img_loader(cfg, data, ):
     
     return samples, targets, clothes, meta, camids, text
 
-def evaluate_fn(cfg, model, val_loader, logger, evaluator_diff, evaluator_same, val_loader_same, device, epoch, rank_writer, mAP_writer, dataset, eval_mode=None, evaluator=None, dump=None, evaluator_general=None, queryloader=None, galleryloader=None , aux_dump=None):
+def evaluate_fn(
+    cfg, model, val_loader, logger,
+    evaluator_diff, evaluator_same, val_loader_same,
+    device, epoch, rank_writer, mAP_writer, dataset,
+    eval_mode=None, evaluator=None, dump=None,
+    evaluator_general=None, queryloader=None, galleryloader=None,
+    projector=None, aux_dump=None
+):
     model.eval()
-    cmc_overall, mAP_overall = None, None 
-    rank1, mAP, cmc_overall, mAP_overall = None, None, None, None 
-    do_dump = (eval_mode) or (dump)
-    dump_w_index=eval_mode
+    cmc_overall, mAP_overall = None, None
+    rank1, mAP, cmc_overall, mAP_overall = None, None, None, None
+
+    do_dump = bool(eval_mode) or bool(dump)
+    dump_w_index = bool(eval_mode)
+
     if 'prcc' in cfg.DATA.DATASET:
         evaluator_diff.reset()
         evaluator_same.reset()
         logger.info("Clothes changing setting")
+
         if dump_w_index:
             if aux_dump:
-                rank1, mAP= test_w_index_w_aux(cfg, model, evaluator_diff, val_loader, logger, device,epoch,rank_writer, mAP_writer, dump=do_dump, dataset_name=cfg.DATA.DATASET, prefix=" CC : ")
+                rank1, mAP = test_w_index_w_aux(
+                    cfg, model, evaluator_diff, val_loader, logger, device,
+                    epoch, rank_writer, mAP_writer,
+                    dump=do_dump,
+                    dataset_name=cfg.DATA.DATASET,
+                    prefix=" CC : "
+                )
                 logger.info("Standard setting")
-                test_w_index_w_aux(cfg, model, evaluator_same, val_loader_same, logger, device,epoch,rank_writer, mAP_writer, test=True, dump=False, dataset_name=cfg.DATA.DATASET)
+                test_w_index_w_aux(
+                    cfg, model, evaluator_same, val_loader_same, logger, device,
+                    epoch, rank_writer, mAP_writer,
+                    test=True,
+                    dump=False,
+                    dataset_name=cfg.DATA.DATASET,
+                )
             else:
-                rank1, mAP= test_w_index(cfg, model, evaluator_diff, val_loader, logger, device,epoch,rank_writer, mAP_writer, dump=do_dump, dataset_name=cfg.DATA.DATASET, prefix=" CC : ")
+                rank1, mAP = test_w_index(
+                    cfg, model, evaluator_diff, val_loader, logger, device,
+                    epoch, rank_writer, mAP_writer,
+                    dump=do_dump,
+                    dataset_name=cfg.DATA.DATASET,
+                    prefix=" CC : "
+                )
                 logger.info("Standard setting")
-                test_w_index(cfg, model, evaluator_same, val_loader_same, logger, device,epoch,rank_writer, mAP_writer, test=True, dump=False, dataset_name=cfg.DATA.DATASET)
+                test_w_index(
+                    cfg, model, evaluator_same, val_loader_same, logger, device,
+                    epoch, rank_writer, mAP_writer,
+                    test=True,
+                    dump=False,
+                    dataset_name=cfg.DATA.DATASET,
+                )
         else:
-            rank1, mAP= test(cfg, model, evaluator_diff, val_loader, logger, device,epoch, rank_writer, mAP_writer, prefix=" CC : ")
+            rank1, mAP = test(
+                cfg, model, evaluator_diff, val_loader, logger, device,
+                epoch, rank_writer, mAP_writer,
+                prefix=" CC : "
+            )
             logger.info("Standard setting")
-            test(cfg, model, evaluator_same, val_loader_same, logger, device, epoch,  rank_writer, mAP_writer,test=True)
+            test(
+                cfg, model, evaluator_same, val_loader_same, logger, device,
+                epoch, rank_writer, mAP_writer,
+                test=True,
+            )
+
     elif 'ltcc' in cfg.DATA.DATASET:
         evaluator_diff.reset()
         evaluator_general.reset()
 
         if dump_w_index:
             logger.info("Clothes changing setting")
+
             if aux_dump:
-                rank1, mAP = test_w_index_w_aux(cfg, model, evaluator_diff, val_loader, logger, device,epoch,rank_writer, mAP_writer, cc=True, dump=do_dump, dataset_name=cfg.DATA.DATASET)
+                evaluator_diff.reset()
+                rank1_768, mAP_768 = test_w_index_w_aux(
+                    cfg, model, evaluator_diff, val_loader, logger, device,
+                    epoch, rank_writer, mAP_writer,
+                    cc=True,
+                    prefix=" CC[768]: ",
+                    projector=None,              
+                    dump=do_dump,
+                    dataset_name=cfg.DATA.DATASET,
+                )
+
+                evaluator_diff.reset()
+                rank1_1024, mAP_1024 = test_w_index_w_aux(
+                    cfg, model, evaluator_diff, val_loader, logger, device,
+                    epoch, rank_writer, mAP_writer,
+                    cc=True,
+                    prefix=" CC[1024]: ",
+                    projector=projector,         
+                    dump=do_dump,
+                    dataset_name=cfg.DATA.DATASET,
+                )
+
+                rank1, mAP = rank1_1024, mAP_1024
+
                 logger.info("Standard setting")
-                test_w_index_w_aux(cfg, model, evaluator_general, val_loader, logger, device,epoch,rank_writer, mAP_writer, test=True, prefix=" General: ", dump=False, dataset_name=cfg.DATA.DATASET)
+                test_w_index_w_aux(
+                    cfg, model, evaluator_general, val_loader, logger, device,
+                    epoch, rank_writer, mAP_writer,
+                    test=True,
+                    projector=None,              
+                    prefix=" General: ",
+                    dump=False,
+                    dataset_name=cfg.DATA.DATASET,
+                )
+
             else:
-                rank1, mAP = test_w_index(cfg, model, evaluator_diff, val_loader, logger, device,epoch,rank_writer, mAP_writer, cc=True, dump=do_dump, dataset_name=cfg.DATA.DATASET)
+                evaluator_diff.reset()
+                rank1_768, mAP_768 = test_w_index(
+                    cfg, model, evaluator_diff, val_loader, logger, device,
+                    epoch, rank_writer, mAP_writer,
+                    cc=True,
+                    prefix=" CC[768]: ",
+                    projector=None,              
+                    dump=do_dump,
+                    dataset_name=cfg.DATA.DATASET,
+                )
+
+                evaluator_diff.reset()
+                rank1_1024, mAP_1024 = test_w_index(
+                    cfg, model, evaluator_diff, val_loader, logger, device,
+                    epoch, rank_writer, mAP_writer,
+                    cc=True,
+                    prefix=" CC[1024]: ",
+                    projector=projector,         
+                    dump=do_dump,
+                    dataset_name=cfg.DATA.DATASET,
+                )
+
+                # use projector metrics as main
+                rank1, mAP = rank1_1024, mAP_1024
+
                 logger.info("Standard setting")
-                test_w_index(cfg, model, evaluator_general, val_loader, logger, device,epoch,rank_writer, mAP_writer, test=True, prefix=" General: ", dump=False, dataset_name=cfg.DATA.DATASET)
+                test_w_index(
+                    cfg, model, evaluator_general, val_loader, logger, device,
+                    epoch, rank_writer, mAP_writer,
+                    test=True,
+                    projector=None,
+                    prefix=" General: ",
+                    dump=False,
+                    dataset_name=cfg.DATA.DATASET,
+                )
+
         else:
             logger.info("Clothes changing setting")
-            rank1, mAP = test(cfg, model, evaluator_diff, val_loader, logger, device,epoch,rank_writer, mAP_writer, cc=True)
+
+            # CC[768]: student backbone
+            evaluator_diff.reset()
+            rank1_768, mAP_768 = test(
+                cfg, model, evaluator_diff, val_loader, logger, device,
+                epoch, rank_writer, mAP_writer,
+                cc=True,
+                prefix=" CC[768]: ",
+                projector=None,                  
+            )
+
+            # CC[1024]: projector feature
+            evaluator_diff.reset()
+            rank1_1024, mAP_1024 = test(
+                cfg, model, evaluator_diff, val_loader, logger, device,
+                epoch, rank_writer, mAP_writer,
+                cc=True,
+                prefix=" CC[1024]: ",
+                projector=projector,             
+            )
+
+            rank1, mAP = rank1_1024, mAP_1024
+
             logger.info("Standard setting")
-            test(cfg, model, evaluator_general, val_loader, logger, device, epoch, rank_writer, mAP_writer,test=True, prefix=" General: ")
-    elif 'mevid' in cfg.DATA.DATASET :
-        rank1, mAP, cmc_overall, mAP_overall = test_mevid(cfg, model, val_loader[0], val_loader[1], dataset, device, dump_w_index=eval_mode, dump=do_dump)
-    elif 'ccvid' in cfg.DATA.DATASET :
-        rank1, mAP = vid_test(cfg, model, val_loader[0], val_loader[1], dataset, device, dump_w_index=eval_mode, dump=do_dump)
-    if 'mevid' in cfg.DATA.DATASET: 
+            test(
+                cfg, model, evaluator_general, val_loader, logger, device,
+                epoch, rank_writer, mAP_writer,
+                test=True,
+                projector=None,                  
+                prefix=" General: ",
+            )
+
+    elif 'mevid' in cfg.DATA.DATASET:
+        rank1, mAP, cmc_overall, mAP_overall = test_mevid(
+            cfg, model, val_loader[0], val_loader[1], dataset, device,
+            dump_w_index=eval_mode,
+            dump=do_dump,
+        )
+
+    elif 'ccvid' in cfg.DATA.DATASET:
+        rank1, mAP = vid_test(
+            cfg, model, val_loader[0], val_loader[1], dataset, device,
+            dump_w_index=eval_mode,
+            dump=do_dump,
+        )
+
+    if 'mevid' in cfg.DATA.DATASET:
         if dist.get_rank() == 0:
             st = "\n"
-            for k1, k2 in zip(cmc_overall, mAP_overall): st += f" {k1} : {cmc_overall[k1]:.1%} & {k2} : {mAP_overall[k2]:.1%} \n"
+            for k1, k2 in zip(cmc_overall, mAP_overall):
+                st += f" {k1} : {cmc_overall[k1]:.1%} & {k2} : {mAP_overall[k2]:.1%} \n"
             logger.info(f"==> {st}")
         dist.barrier()
+
     return rank1, mAP, cmc_overall, mAP_overall
-        
-def set_train_methods(cfg, model, local_rank):
+
+def set_train_methods(cfg, model, local_rank, projector=None):
     eval_period = cfg.SOLVER.EVAL_PERIOD
 
-    device = "cuda"
+    # Proper CUDA device object
+    device = torch.device(f"cuda:{local_rank}")
     epochs = cfg.SOLVER.MAX_EPOCHS
 
     logger = logging.getLogger("EVA-attribure.train")
     _LOCAL_PROCESS_GROUP = None
-    if device:
-        model.to(local_rank)
-        if torch.cuda.device_count() > 1 and cfg.MODEL.DIST_TRAIN:
-            print('Using {} GPUs for training'.format(torch.cuda.device_count()))
-            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank],find_unused_parameters=True)
+
+    model.to(device)
+    if torch.cuda.device_count() > 1 and cfg.MODEL.DIST_TRAIN:
+        print('Using {} GPUs for training'.format(torch.cuda.device_count()))
+        model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[local_rank], find_unused_parameters=True
+        )
+
+    if projector is not None:
+        projector.to(device)
 
     if cfg.TENSORBOARD:
         train_writer = SummaryWriter(os.path.join(cfg.OUTPUT_DIR, 'train'))
@@ -125,21 +282,36 @@ def set_train_methods(cfg, model, local_rank):
         mAP_writer = SummaryWriter(os.path.join(cfg.OUTPUT_DIR, 'mAP'))
     else:
         train_writer = None
-        rank_writer = None 
+        rank_writer = None
         mAP_writer = None
-        
+
     loss_meter = AverageMeter()
     acc_meter = AverageMeter()
-    
+
     scaler = amp.GradScaler()
-    
-    return eval_period, device, epochs, logger, train_writer, rank_writer, mAP_writer, loss_meter, acc_meter, scaler, model
-    
+
+    if projector is not None:
+        return (
+            eval_period, device, epochs, logger,
+            train_writer, rank_writer, mAP_writer,
+            loss_meter, acc_meter, scaler,
+            model, projector,
+        )
+
+    return (
+        eval_period, device, epochs, logger,
+        train_writer, rank_writer, mAP_writer,
+        loss_meter, acc_meter, scaler,
+        model
+    )
+
+
 def train_step(cfg, model, train_loader, optimizer, optimizer_center, loss_fn, scaler, loss_meter, acc_meter, scheduler, epoch, DEFAULT_LOADER=default_img_loader, train_writer=None , training_mode="image", **kwargs):
     log_period = cfg.SOLVER.LOG_PERIOD
     logger = logging.getLogger("EVA-attribure.train")
 
     model.train()
+
     for idx, data in enumerate(train_loader):
 
         samples, targets, clothes, meta, camids, text = DEFAULT_LOADER(cfg, data, )
@@ -181,9 +353,9 @@ def train_step(cfg, model, train_loader, optimizer, optimizer_center, loss_fn, s
     return idx 
     
 def eval_step(cfg, model, val_loader, evaluator_diff, evaluator_same, val_loader_same, device, epoch, rank_writer, mAP_writer, dataset, 
-    best_rank1_dict, best_map_dict, best_rank1, best_map, evaluator=None, evaluator_general=None , queryloader=None, galleryloader=None, threshold_drop=10):
+    best_rank1_dict, best_map_dict, best_rank1, best_map, evaluator=None, evaluator_general=None , queryloader=None, galleryloader=None, projector=None, threshold_drop=10):
     logger = logging.getLogger("EVA-attribure.train")
-    rank1, mAP, cmc_overall, mAP_overall =  evaluate_fn(cfg, model, val_loader, logger, evaluator_diff, evaluator_same, val_loader_same, device, epoch, rank_writer, mAP_writer, dataset, evaluator=evaluator, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader)    
+    rank1, mAP, cmc_overall, mAP_overall =  evaluate_fn(cfg, model, val_loader, logger, evaluator_diff, evaluator_same, val_loader_same, device, epoch, rank_writer, mAP_writer, dataset, evaluator=evaluator, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader, projector=projector)    
     best_epoch = 0 
 
     if 'mevid' in cfg.DATA.DATASET :
@@ -264,8 +436,8 @@ def do_train(cfg,
              dataset,
              val_loader = None,
              val_loader_same = None,
-             eval=None, save5=None, TRAIN_step_FN=train_step, training_mode="image", queryloader=None, galleryloader=None, threshold_drop=10, **kwargs):
-
+             eval=None, save5=None, TRAIN_step_FN=train_step, training_mode="image", queryloader=None, galleryloader=None, threshold_drop=10, projector=None, **kwargs):
+    
     eval_period, device, epochs, logger, train_writer, rank_writer, \
         mAP_writer, loss_meter, acc_meter, scaler, model = set_train_methods(cfg, model, local_rank)
     
@@ -310,7 +482,7 @@ def do_train(cfg,
 
         if epoch % eval_period == 0:
             best_map, best_rank1, potential_best_epoch, best_rank1_dict, best_map_dict = eval_step(cfg, model, val_loader, evaluator_diff, evaluator_same, val_loader_same, device, epoch, rank_writer, mAP_writer, dataset,
-            best_rank1_dict, best_map_dict, best_rank1, best_map, evaluator=evaluator, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader, threshold_drop=threshold_drop)
+            best_rank1_dict, best_map_dict, best_rank1, best_map, evaluator=evaluator, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader, projector=None, threshold_drop=threshold_drop)
             best_epoch = max(best_epoch, potential_best_epoch)
         
         if save5 and epoch % 5 == 0 and dist.get_rank() == 0:
@@ -332,141 +504,150 @@ def do_train(cfg,
 def train_step_distillation(
     cfg, model, train_loader, optimizer, optimizer_center, loss_fn, scaler,
     loss_meter, acc_meter, scheduler, epoch,
-    DEFAULT_LOADER=default_img_loader,
+    DEFAULT_LOADER=default_img_loader, projector=None,
     train_writer=None, training_mode="image", **kwargs
 ):
     log_period = cfg.SOLVER.LOG_PERIOD
     logger = logging.getLogger("EVA-attribure.train")
 
     teacher = kwargs.get("teacher_model", None)
-    mse     = kwargs.get("mse", None)
+    mse = kwargs.get("mse", None)
 
-    KD_TARGET = float(getattr(cfg.TRAIN, "KD_WEIGHT", 0.5))
+    KD_TARGET  = float(getattr(cfg.TRAIN, "KD_WEIGHT", 0.5))
     KD_WARMUP_EPOCHS = int(getattr(cfg.TRAIN, "KD_WARMUP_EPOCHS", 0))
 
+    deviced = False
     model.train()
-    for idx, data in enumerate(train_loader):
-        samples, targets, clothes, meta, camids, text = DEFAULT_LOADER(cfg, data)
+    
+    if teacher is not None:
+        teacher_ref = teacher.module if hasattr(teacher, "module") else teacher
+        teacher_ref.eval()
+    else:
+        teacher_ref = None
 
-        optimizer.zero_grad()
-        optimizer_center.zero_grad()
-        kd_loss = 0.0  
+    last_idx = -1
+    for cycle in range(2):   # 0 = base  1 = KD
+        for idx, data in enumerate(train_loader):
+            last_idx = idx
+            use_kd = (cycle == 1) 
+            samples, targets, clothes, meta, camids, text = DEFAULT_LOADER(cfg, data)
 
-        # -------------------- Forward (student, PR always returns 3) ----------------
-        with amp.autocast(enabled=True):
-            if cfg.MODEL.ADD_META:
-                if cfg.MODEL.CLOTH_ONLY:
-                    out = model(samples, clothes)
-                else:
-                    out = model(samples, clothes, meta)
+            optimizer.zero_grad()
+            optimizer_center.zero_grad()
+
+            s_out = model(samples, clothes)
+            s_score, s_feat, s_color_output, s_color_feats, s_dist = s_out
+
+            feat_768 = s_feat
+
+            if projector is not None:
+                student_1024 = projector(feat_768)
             else:
-                out = model(samples)
+                student_1024 = feat_768  
 
-        # expect (score, feat_768, student_1024)
-        score, feat_768, student_1024 = out
+            if epoch == 1 and idx == 0:
+                logger.info(f"[DEBUG] feat_768.shape: {tuple(feat_768.shape)}")
+                logger.info(f"[DEBUG] student_1024.shape: {tuple(student_1024.shape)}")
 
-        # -------------------- Main loss (ColorReID / ReID) -----------------
-        with amp.autocast(enabled=True):
-            main_loss = loss_fn(score, feat_768, targets, camids, training_mode=training_mode)
-
-        if cfg.TENSORBOARD and train_writer is not None:
-            train_writer.add_scalar("loss", float(main_loss.item()), epoch)
-
-        if isinstance(score, list):
-            acc = (score[0].max(1)[1] == targets).float().mean()
-        elif score is not None:
-            acc = (score.max(1)[1] == targets).float().mean()
-        else:
-            logger.info("Yes this is firing")
-            acc = torch.tensor(0.0, device=feat_768.device)
-
-        # -------------------- KD loss (EVA_B 768 -> 1024 vs EVA_L 1024) ---------------
-        if (teacher is not None) and (mse is not None) and (student_1024 is not None):
-            teacher_ref = teacher.module if hasattr(teacher, "module") else teacher
-            teacher_ref.eval()
-
-            with torch.no_grad():
-                if getattr(cfg.TRAIN, "TEACH1_LOAD_AS_IMG", False):
-                    tout = teacher_ref(samples)
-                else:
-                    if cfg.MODEL.ADD_META:
-                        if cfg.MODEL.CLOTH_ONLY:
-                            tout = teacher_ref(samples, clothes)
-                        else:
-                            tout = teacher_ref(samples, clothes, meta)
-                    else:
-                        tout = teacher_ref(samples, clothes)
-
-                # pick teacher feature
-                if isinstance(tout, (list, tuple)):
-                    teacher_1024 = tout[0].float()
-                else:
-                    teacher_1024 = tout.float()
-
-            # one-time debug to sanity-check shapes
-            if epoch == 0 and idx == 0:
-                parts = []
-                if isinstance(tout, (list, tuple)):
-                    for i, x in enumerate(tout):
-                        if torch.is_tensor(x):
-                            parts.append(f"part {i}: shape={tuple(x.shape)}, dtype={x.dtype}")
-                        else:
-                            parts.append(f"part {i}: type={type(x)}")
-                else:
-                    parts.append(f"single: shape={tuple(tout.shape)}, dtype={tout.dtype}")
-                logger.info("[KD TEACHER OUT] " + " | ".join(parts))
-
-            # KD in fp32, with warmup weight
-            with torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=False):
-                s_raw = student_1024.float()
-                t_raw = teacher_1024.to(device=s_raw.device, dtype=s_raw.dtype)
-
-                s_hat = F.normalize(s_raw, p=2, dim=1, eps=1e-6)
-                t_hat = F.normalize(t_raw, p=2, dim=1, eps=1e-6)
-
-                kd_raw   = mse(s_hat, t_hat)
-                cur_kd_w = KD_TARGET * min(1.0, (epoch + 1) / max(1, KD_WARMUP_EPOCHS))
-                kd_loss  = cur_kd_w * kd_raw
-
-            if cfg.TENSORBOARD and train_writer is not None:
-                train_writer.add_scalar("loss_kd", float(kd_loss.item()), epoch)
-
-        # -------------------- Backward & optimizer step -------------------
-        total_loss = main_loss + (kd_loss if isinstance(kd_loss, torch.Tensor) else 0.0)
-
-        if idx == 500:
-            ml = float(main_loss.item())
-            kl = float(kd_loss.item() if isinstance(kd_loss, torch.Tensor) else 0.0)
-            logger.info(
-                f"[DEBUG KD] epoch={epoch} main_loss={ml:.4f} kd_loss={kl:.4f} KD_TARGET={KD_TARGET}"
-            )
-
-        scaler.scale(total_loss).backward()
-        scaler.step(optimizer)
-
-        if "center" in cfg.MODEL.METRIC_LOSS_TYPE:
-            for param in center_criterion.parameters():
-                param.grad.data *= (1.0 / cfg.SOLVER.CENTER_LOSS_WEIGHT)
-            scaler.step(optimizer_center)
-
-        scaler.update()
-
-        loss_meter.update(main_loss.item(), samples.shape[0])
-        acc_meter.update(acc, 1)
-
-        torch.cuda.synchronize()
-        if (idx + 1) % log_period == 0:
-            logger.info(
-                "Epoch[{}] Iteration[{}/{}] Loss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}".format(
-                    epoch,
-                    (idx + 1),
-                    len(train_loader),
-                    loss_meter.avg,
-                    acc_meter.avg,
-                    scheduler._get_lr(epoch)[0],
+            with amp.autocast(enabled=True):
+                main_loss = loss_fn(
+                    s_score, feat_768, targets, camids,
+                    training_mode=training_mode,
                 )
-            )
-    return idx
+                main_loss += loss_fn(
+                    s_score, student_1024, targets, camids,
+                    training_mode=training_mode,
+                )
+               
+            if cfg.TENSORBOARD and train_writer is not None:
+                tag = "loss_main_base" if not use_kd else "loss_main_kd_cycle"
+                train_writer.add_scalar(tag, float(main_loss.item()), epoch)
+
+            if isinstance(s_score, list):
+                acc = (s_score[0].max(1)[1] == targets).float().mean()
+            elif s_score is not None:
+                acc = (s_score.max(1)[1] == targets).float().mean()
+            else:
+                logger.info("Score is None, setting acc=0")
+                acc = torch.tensor(0.0, device=feat_768.device)
+
+            kd_loss = 0.0
+            if use_kd:
+                with torch.no_grad():
+                    with amp.autocast(enabled=True):   
+                        if getattr(cfg.TRAIN, "TEACH1_LOAD_AS_IMG", False):
+                            tout = teacher_ref(samples)
+                        else:
+                            if cfg.MODEL.ADD_META:
+                                if cfg.MODEL.CLOTH_ONLY:
+                                    tout = teacher_ref(samples, clothes)
+                                else:
+                                    tout = teacher_ref(samples, clothes, meta)
+                            else:
+                                tout = teacher_ref(samples, clothes)
+
+                    if isinstance(tout, (list, tuple)):
+                        teacher_1024 = tout[0].float()
+                    else:
+                        teacher_1024 = tout.float()
+
+                with torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=False):
+                    s_raw = student_1024.float()
+                    t_raw = teacher_1024.float()
+
+                    s_hat = F.normalize(s_raw, p=2, dim=-1, eps=1e-6)
+                    t_hat = F.normalize(t_raw, p=2, dim=-1, eps=1e-6)
+
+                    kd_raw = mse(s_hat, t_hat)
+                    cur_kd_w = 0.5
+                    kd_loss = cur_kd_w * kd_raw
+
+
+                if cfg.TENSORBOARD and train_writer is not None:
+                    train_writer.add_scalar("loss_kd", float(kd_loss.item()), epoch)
+
+            # Loss per cycle
+            if isinstance(kd_loss, torch.Tensor):
+                total_loss = main_loss + kd_loss
+            else:
+                total_loss = main_loss
+
+            if idx == 500:
+                ml = float(main_loss.item())
+                kl = float(kd_loss.item() if isinstance(kd_loss, torch.Tensor) else 0.0)
+                logger.info(
+                    f"[DEBUG KD] epoch={epoch} cycle={cycle} main_loss={ml:.4f} kd_loss={kl:.4f} KD_TARGET={KD_TARGET}"
+                )
+
+            scaler.scale(total_loss).backward()
+            scaler.step(optimizer)
+
+            if "center" in cfg.MODEL.METRIC_LOSS_TYPE:
+                for param in center_criterion.parameters():
+                    param.grad.data *= (1.0 / cfg.SOLVER.CENTER_LOSS_WEIGHT)
+                scaler.step(optimizer_center)
+
+            scaler.update()
+
+            loss_meter.update(main_loss.item(), samples.shape[0])
+            acc_meter.update(acc, 1)
+
+            torch.cuda.synchronize()
+            if (idx + 1) % log_period == 0:
+                logger.info(
+                    "Epoch[{}][cycle {}] Iter[{}/{}] Loss: {:.3f}, Acc: {:.3f}, Base Lr: {:.2e}".format(
+                        epoch,
+                        cycle,
+                        (idx + 1),
+                        len(train_loader),
+                        loss_meter.avg,
+                        acc_meter.avg,
+                        scheduler._get_lr(epoch)[0],
+                    )
+                )
+
+    return last_idx
+
 
 def do_train_w_teachers_distillation(cfg,
              model,
@@ -481,10 +662,10 @@ def do_train_w_teachers_distillation(cfg,
              val_loader = None,
              val_loader_same = None,
              eval=None, save5=None, TRAIN_step_FN=train_step_distillation, TRAIN_ext_step_FN=train_step_distillation,
-             teacher_trainloader=None, teacher_dataset=None, training_mode="image", teacher_training_mode="video", queryloader=None, galleryloader=None, threshold_drop=10, **kwargs):
+             teacher_trainloader=None, teacher_dataset=None, training_mode="image", teacher_training_mode="video", queryloader=None, galleryloader=None, threshold_drop=10, projector=None, **kwargs):
 
     eval_period, device, epochs, logger, train_writer, rank_writer, \
-        mAP_writer, loss_meter, acc_meter, scaler, model = set_train_methods(cfg, model, local_rank)
+        mAP_writer, loss_meter, acc_meter, scaler, model, projector = set_train_methods(cfg, model, local_rank, projector)
     
     evaluator_diff, evaluator_general, evaluator_same, evaluator = evaluator_gen(cfg, dataset)
     print("BEFORE")
@@ -496,23 +677,31 @@ def do_train_w_teachers_distillation(cfg,
         for p in teacher_model.parameters():
             p.requires_grad = False
         teacher_model.eval()
-
         teacher_ref = teacher_model.module if hasattr(teacher_model, "module") else teacher_model
+        rank1_t, mAP_t, _, _ = evaluate_fn(
+            cfg, teacher_ref,          
+            val_loader,
+            logger,
+            evaluator_diff,
+            evaluator_same,
+            val_loader_same,
+            device,
+            -1,                        
+            rank_writer,
+            mAP_writer,
+            dataset,
+            eval_mode=cfg.TEST.MODE,
+            evaluator=evaluator,
+            dump=True,
+            evaluator_general=evaluator_general,
+            queryloader=queryloader,
+            galleryloader=galleryloader,
+        )
 
-        try:
-            rank1, mAP, _, _ = evaluate_fn(
-                cfg, teacher_ref, val_loader, logger,
-                evaluator_diff, evaluator_same, val_loader_same,
-                device, epoch=-1,
-                rank_writer=None, mAP_writer=None,
-                dataset=dataset, eval_mode=cfg.TEST.MODE,
-                evaluator=evaluator, dump=False,
-                evaluator_general=evaluator_general,
-                queryloader=queryloader, galleryloader=galleryloader
-            )
-            logger.info(f"==> TEACHER baseline: Rank-1 {rank1:.1%}, mAP {mAP:.1%}")
-        except Exception as e:
-            logger.warning(f"[teacher pre-eval] skipped due to error: {e}")
+        logger.info(
+            "==> TEACHER baseline: Rank-1 {:.1%}, mAP {:.1%}".format(rank1_t, mAP_t)
+        )
+
     else:
         logger.info('ELSE')
 
@@ -546,13 +735,13 @@ def do_train_w_teachers_distillation(cfg,
         scheduler.step(epoch)
 
         logger.info("==> Student Training .... ")
-        idx = TRAIN_step_FN(cfg, model, train_loader, optimizer, optimizer_center, loss_fn, scaler, loss_meter, acc_meter, scheduler,  epoch, train_writer=train_writer, training_mode=training_mode, **kwargs )
+        idx = TRAIN_step_FN(cfg, model, train_loader, optimizer, optimizer_center, loss_fn, scaler, loss_meter, acc_meter, scheduler,  epoch, train_writer=train_writer, training_mode=training_mode, projector=projector, **kwargs )
         end_time = time.time()
         time_per_batch = (end_time - start_time) / (idx + 1)
 
         if epoch % eval_period == 0:
             best_map, best_rank1, potential_best_epoch, best_rank1_dict, best_map_dict = eval_step(cfg, model, val_loader, evaluator_diff, evaluator_same, val_loader_same, device, epoch, rank_writer, mAP_writer, dataset,
-            best_rank1_dict, best_map_dict, best_rank1, best_map, evaluator=evaluator, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader, threshold_drop=threshold_drop)
+            best_rank1_dict, best_map_dict, best_rank1, best_map, evaluator=evaluator, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader, projector=projector, threshold_drop=threshold_drop)
             best_epoch = max(best_epoch, potential_best_epoch)
         
         if save5 and epoch % 5 == 0 and dist.get_rank() == 0:
@@ -584,7 +773,8 @@ def do_train_w_teachers(cfg,
              val_loader = None,
              val_loader_same = None,
              eval=None, save5=None, TRAIN_step_FN=train_step, TRAIN_ext_step_FN=train_step,
-             teacher_trainloader=None, teacher_dataset=None, training_mode="image", teacher_training_mode="video", queryloader=None, galleryloader=None, threshold_drop=10, **kwargs):
+             teacher_trainloader=None, teacher_dataset=None, training_mode="image",
+             teacher_training_mode="video", queryloader=None, galleryloader=None, threshold_drop=10, **kwargs):
 
     eval_period, device, epochs, logger, train_writer, rank_writer, \
         mAP_writer, loss_meter, acc_meter, scaler, model = set_train_methods(cfg, model, local_rank)
@@ -638,7 +828,7 @@ def do_train_w_teachers(cfg,
 
         if epoch % eval_period == 0:
             best_map, best_rank1, potential_best_epoch, best_rank1_dict, best_map_dict = eval_step(cfg, model, val_loader, evaluator_diff, evaluator_same, val_loader_same, device, epoch, rank_writer, mAP_writer, dataset,
-            best_rank1_dict, best_map_dict, best_rank1, best_map, evaluator=evaluator, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader, threshold_drop=threshold_drop)
+            best_rank1_dict, best_map_dict, best_rank1, best_map, evaluator=evaluator, evaluator_general=evaluator_general, queryloader=queryloader, galleryloader=galleryloader, projector=None, threshold_drop=threshold_drop)
             best_epoch = max(best_epoch, potential_best_epoch)
         
         if save5 and epoch % 5 == 0 and dist.get_rank() == 0:
@@ -704,7 +894,11 @@ def do_inference(cfg,
 
 def test(cfg, model, evaluator, val_loader, logger, device, epoch=None,
          rank_writer=None, mAP_writer=None, test=False, cc=False,
-         prefix=None, dump=None):
+         prefix=None, dump=None, projector=None):
+
+    logger.info("[EVAL] Entered test()")
+
+    # put projector on the right device and in eval mode
 
     for n_iter, (imgs, pids, camids, clothes_id, clothes_ids, meta) in enumerate(val_loader):
         with torch.no_grad():
@@ -729,19 +923,23 @@ def test(cfg, model, evaluator, val_loader, logger, device, epoch=None,
                     meta = torch.zeros_like(meta)
                 raw_out = model(imgs, clothes_ids, meta)
 
-            feat = raw_out
+            # get backbone feature (feat_768)
             if isinstance(raw_out, (list, tuple)):
-                if len(raw_out) == 3 and torch.is_tensor(raw_out[1]):
-                    score, feat_768, student_1024 = raw_out
-                    feat = feat_768
-                elif len(raw_out) >= 2 and torch.is_tensor(raw_out[1]):
-                    score, feat_768 = raw_out[0], raw_out[1]
-                    feat = feat_768
-                else:
-                    tensor_feats = [x for x in raw_out if torch.is_tensor(x)]
-                    assert tensor_feats, f"test(): raw_out has no tensor element: {type(raw_out)}"
-                    feat = tensor_feats[0]
+                tensor_feats = [x for x in raw_out if torch.is_tensor(x)]
+                assert tensor_feats, f"test(): raw_out has no tensor element: {type(raw_out)}"
+                feat_768 = tensor_feats[0]
+            else:
+                if not torch.is_tensor(raw_out):
+                    raise RuntimeError(f"Unexpected eval output type: {type(raw_out)}")
+                feat_768 = raw_out
 
+            # choose which feature we actually evaluate with
+            if projector is not None:
+                feat = projector(feat_768)
+            else:
+                feat = feat_768
+
+            # normal evaluator update
             if cc:
                 evaluator.update((feat, pids, camids, clothes_id))
             else:
@@ -756,9 +954,11 @@ def test(cfg, model, evaluator, val_loader, logger, device, epoch=None,
         string += "Rank-{:<3}:{:.1%}  ".format(r, cmc[r - 1])
     logger.info(string)
     logger.info("{} mAP Acc. :{:.1%}".format(prefix, mAP))
+
     if test:
         torch.cuda.empty_cache()
         return
+
     logger.info("Validation Results - Epoch: {}".format(epoch))
     rank1 = cmc[0]
     if rank_writer:
